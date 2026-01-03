@@ -1,0 +1,309 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Foydalanuvchilar (Adminlar, menejerlar)
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  fullName  String
+  role      UserRole @default(ADMIN)
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isActive  Boolean  @default(true)
+
+  createdStudents Student[]    @relation("CreatedBy")
+  createdTeachers Teacher[]    @relation("CreatedBy")
+  createdPayments Payment[]    @relation("CreatedBy")
+  notifications   Notification[]
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  ACCOUNTANT
+}
+
+// Talabalar
+model Student {
+  id              String    @id @default(cuid())
+  firstName       String
+  lastName        String
+  middleName      String?
+  phone           String    @unique
+  parentPhone     String?
+  email           String?
+  dateOfBirth     DateTime?
+  gender          Gender?
+  address         String?
+  passportSeries  String?
+  passportNumber  String?
+  enrollmentDate  DateTime  @default(now())
+  status          StudentStatus @default(ACTIVE)
+  photo           String?
+  notes           String?
+  createdById     String
+  createdBy       User      @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  groupStudents   GroupStudent[]
+  attendances     Attendance[]
+  payments        Payment[]
+  testResults     TestResult[]
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  SUSPENDED
+  DROPPED
+}
+
+// O'qituvchilar
+model Teacher {
+  id            String    @id @default(cuid())
+  firstName     String
+  lastName      String
+  middleName    String?
+  phone         String    @unique
+  email         String?   @unique
+  dateOfBirth   DateTime?
+  address       String?
+  specialization String?
+  experience    Int?
+  education     String?
+  salary        Decimal?  @db.Decimal(10, 2)
+  status        TeacherStatus @default(ACTIVE)
+  photo         String?
+  hireDate      DateTime  @default(now())
+  createdById   String
+  createdBy     User      @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  groups        Group[]
+  schedules     Schedule[]
+  salaryPayments SalaryPayment[]
+}
+
+enum TeacherStatus {
+  ACTIVE
+  ON_LEAVE
+  RESIGNED
+}
+
+// Kurslar
+model Course {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  duration    Int?     // soatda
+  price       Decimal  @db.Decimal(10, 2)
+  level       String?  // Beginner, Intermediate, Advanced
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  groups      Group[]
+}
+
+// Guruhlar
+model Group {
+  id          String      @id @default(cuid())
+  name        String
+  courseId    String
+  course      Course      @relation(fields: [courseId], references: [id])
+  teacherId   String
+  teacher     Teacher     @relation(fields: [teacherId], references: [id])
+  startDate   DateTime
+  endDate     DateTime?
+  status      GroupStatus @default(ACTIVE)
+  maxStudents Int?
+  roomNumber  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  groupStudents GroupStudent[]
+  schedules     Schedule[]
+  attendances   Attendance[]
+  testResults   TestResult[]
+}
+
+enum GroupStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// Guruh-Talaba bog'lanishi
+model GroupStudent {
+  id          String   @id @default(cuid())
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollDate  DateTime @default(now())
+  status      GroupStudentStatus @default(ACTIVE)
+
+  @@unique([groupId, studentId])
+}
+
+enum GroupStudentStatus {
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+// Dars jadvali
+model Schedule {
+  id         String   @id @default(cuid())
+  groupId    String
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  teacherId  String
+  teacher    Teacher  @relation(fields: [teacherId], references: [id])
+  dayOfWeek  Int      // 0-6 (Yakshanba-Shanba)
+  startTime  String   // "09:00"
+  endTime    String   // "11:00"
+  roomNumber String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Davomad
+model Attendance {
+  id        String           @id @default(cuid())
+  groupId   String
+  group     Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime
+  status    AttendanceStatus
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([groupId, studentId, date])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+// To'lovlar
+model Payment {
+  id          String        @id @default(cuid())
+  studentId   String
+  student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount      Decimal       @db.Decimal(10, 2)
+  paymentDate DateTime      @default(now())
+  paymentType PaymentType
+  method      PaymentMethod
+  description String?
+  createdById String
+  createdBy   User          @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum PaymentType {
+  TUITION
+  REGISTRATION
+  EXAM
+  MATERIAL
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  PAYME
+  CLICK
+  UZUM
+}
+
+// O'qituvchi ish haqi to'lovlari
+model SalaryPayment {
+  id          String        @id @default(cuid())
+  teacherId   String
+  teacher     Teacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  amount      Decimal       @db.Decimal(10, 2)
+  paymentDate DateTime
+  period      String        // "2024-01" (yil-oy)
+  method      PaymentMethod
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+// Test natijalari
+model TestResult {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  testName  String
+  score     Decimal  @db.Decimal(5, 2)
+  maxScore  Decimal  @db.Decimal(5, 2)
+  testDate  DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Bildirishnomalar (SMS/Email)
+model Notification {
+  id         String           @id @default(cuid())
+  type       NotificationType
+  recipient  String           // telefon raqami yoki email
+  subject    String?
+  message    String
+  status     NotificationStatus @default(PENDING)
+  sentAt     DateTime?
+  createdById String
+  createdBy   User            @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+enum NotificationType {
+  SMS
+  EMAIL
+  BOTH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// Xarajatlar
+model Expense {
+  id          String        @id @default(cuid())
+  category    String
+  amount      Decimal       @db.Decimal(10, 2)
+  description String
+  expenseDate DateTime
+  method      PaymentMethod
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
