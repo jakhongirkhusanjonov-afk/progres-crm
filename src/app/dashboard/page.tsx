@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { logout } from '@/lib/auth-client'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -20,8 +21,7 @@ export default function DashboardPage() {
   }, [router])
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    logout()
     router.push('/login')
   }
 

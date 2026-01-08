@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logout } from '@/lib/auth-client'
 import {
   Table,
   Button,
@@ -206,8 +207,7 @@ export default function StudentsPage() {
 
   // Chiqish
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    logout()
     router.push('/login')
   }
 

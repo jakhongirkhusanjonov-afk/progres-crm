@@ -1,16 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { saveToken, saveUser } from '@/lib/auth-client'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [formData, setFormData] = useState({
     username: '',
     password: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Redirect parametrini olish
+  const redirectUrl = searchParams.get('redirect') || '/dashboard'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,9 +38,14 @@ export default function LoginPage() {
         return
       }
 
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      router.push('/dashboard')
+      // Tokenni saqlash (cookie va localStorage)
+      saveToken(data.token)
+
+      // User ma'lumotlarini saqlash
+      saveUser(data.user)
+
+      // Redirect qilish
+      router.push(redirectUrl)
     } catch (err) {
       setError('Tizimga kirishda xatolik yuz berdi')
     } finally {

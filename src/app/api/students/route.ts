@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { withAuth, getUser } from '@/lib/api-middleware'
 
 // Talabalarni olish (qidiruv va filter bilan)
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: NextRequest) => {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
-
-    if (!token || !verifyToken(token)) {
-      return NextResponse.json({ error: 'Avtorizatsiya kerak' }, { status: 401 })
-    }
+    const user = getUser(request)
 
     // URL dan query parametrlarni olish
     const searchParams = request.nextUrl.searchParams
@@ -78,15 +74,14 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
-// Yangi talaba qo'shish
-export async function POST(request: NextRequest) {
+// Yangi talaba qo'shish (faqat ADMIN va SUPER_ADMIN)
+export const POST = withAuth(async (request: NextRequest) => {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
-    const decoded = verifyToken(token || '')
+    const user = getUser(request)
 
-    if (!decoded) {
+    if (!user) {
       return NextResponse.json({ error: 'Avtorizatsiya kerak' }, { status: 401 })
     }
 
@@ -141,7 +136,7 @@ export async function POST(request: NextRequest) {
         passportSeries,
         passportNumber,
         notes,
-        createdById: decoded.userId,
+        createdById: user.userId,
       },
       include: {
         createdBy: {
@@ -160,4 +155,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

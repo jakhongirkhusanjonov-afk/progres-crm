@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { withAuth, getUser } from '@/lib/api-middleware'
 
 // Bitta talabani olish
-export async function GET(
+export const GET = withAuth(async (
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+) => {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
-
-    if (!token || !verifyToken(token)) {
-      return NextResponse.json({ error: 'Avtorizatsiya kerak' }, { status: 401 })
-    }
 
     const student = await prisma.student.findUnique({
       where: { id: params.id },
@@ -66,18 +61,17 @@ export async function GET(
       { status: 500 }
     )
   }
-}
+})
 
 // Talabani tahrirlash
-export async function PUT(
+export const PUT = withAuth(async (
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+) => {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
-    const decoded = verifyToken(token || '')
+    const user = getUser(request)
 
-    if (!decoded) {
+    if (!user) {
       return NextResponse.json({ error: 'Avtorizatsiya kerak' }, { status: 401 })
     }
 
@@ -153,18 +147,17 @@ export async function PUT(
       { status: 500 }
     )
   }
-}
+})
 
 // Talabani o'chirish (yoki arxivga olish)
-export async function DELETE(
+export const DELETE = withAuth(async (
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+) => {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
-    const decoded = verifyToken(token || '')
+    const user = getUser(request)
 
-    if (!decoded) {
+    if (!user) {
       return NextResponse.json({ error: 'Avtorizatsiya kerak' }, { status: 401 })
     }
 
@@ -204,4 +197,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})
