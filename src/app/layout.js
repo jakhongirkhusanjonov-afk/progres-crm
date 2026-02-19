@@ -13,8 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "O'quv Markazi CRM",
-  description: "O'quv markazi boshqaruv tizimi",
+  title: "COMPAS - Rivojlanish markazi",
+  description: "COMPAS o'quv markazi CRM tizimi",
+  icons: {
+    icon: '/compas-logo.svg',
+    shortcut: '/compas-logo.svg',
+    apple: '/compas-logo.svg',
+  },
 };
 
 export default function RootLayout({ children }) {

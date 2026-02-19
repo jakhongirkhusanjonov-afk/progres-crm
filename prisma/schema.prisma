@@ -6,23 +6,31 @@ datasource db {
   provider = "postgresql"
 }
 
-// Foydalanuvchilar (Adminlar, menejerlar)
+// Foydalanuvchilar (Adminlar, o'qituvchilar, talabalar)
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  username  String   @unique
-  password  String
-  fullName  String
-  role      UserRole @default(ADMIN)
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isActive  Boolean  @default(true)
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  username      String    @unique
+  password      String    // bcrypt hash
+  plainPassword String?   // AES encrypted (faqat SUPER_ADMIN ko'rishi uchun)
+  fullName      String?
+  role          UserRole  @default(ADMIN)
+  phone         String?
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
+  // Admin yaratgan recordlar
   createdStudents Student[]    @relation("CreatedBy")
   createdTeachers Teacher[]    @relation("CreatedBy")
   createdPayments Payment[]    @relation("CreatedBy")
   notifications   Notification[]
+
+  // O'qituvchi yoki Talaba sifatida bog'lanish
+  student       Student?   @relation("UserStudent")
+  teacher       Teacher?   @relation("UserTeacher")
+  admin         Admin?
 }
 
 enum UserRole {
@@ -30,6 +38,8 @@ enum UserRole {
   ADMIN
   MANAGER
   ACCOUNTANT
+  TEACHER
+  STUDENT
 }
 
 // Talabalar
@@ -37,23 +47,20 @@ model Student {
   id              String    @id @default(cuid())
   firstName       String
   lastName        String
-  middleName      String?
-  phone           String    @unique
+  phone           String    // @unique olib tashlandi - bir oiladan bir nechta farzand bo'lishi mumkin
   parentPhone     String?
-  email           String?
   dateOfBirth     DateTime?
   gender          Gender?
-  address         String?
-  passportSeries  String?
-  passportNumber  String?
   enrollmentDate  DateTime  @default(now())
   status          StudentStatus @default(ACTIVE)
-  photo           String?
-  notes           String?
   createdById     String
   createdBy       User      @relation("CreatedBy", fields: [createdById], references: [id])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  // User account bog'lanishi (login uchun)
+  userId          String?   @unique
+  user            User?     @relation("UserStudent", fields: [userId], references: [id])
 
   groupStudents   GroupStudent[]
   attendances     Attendance[]
@@ -79,14 +86,14 @@ model Teacher {
   firstName     String
   lastName      String
   middleName    String?
-  phone         String    @unique
+  phone         String    // @unique olib tashlandi - bir xil telefon bo'lishi mumkin
   email         String?   @unique
   dateOfBirth   DateTime?
   address       String?
   specialization String?
   experience    Int?
   education     String?
-  salary        Decimal?  @db.Decimal(10, 2)
+  salary        Decimal?
   status        TeacherStatus @default(ACTIVE)
   photo         String?
   hireDate      DateTime  @default(now())
@@ -95,9 +102,40 @@ model Teacher {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // User account bog'lanishi (login uchun)
+  userId        String?   @unique
+  user          User?     @relation("UserTeacher", fields: [userId], references: [id])
+
   groups        Group[]
   schedules     Schedule[]
   salaryPayments SalaryPayment[]
+  teacherCourses TeacherCourse[]
+}
+
+// Adminlar (User bilan bog'langan)
+model Admin {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  phone     String   // @unique olib tashlandi
+  email     String?
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// O'qituvchi-Kurs bog'lanishi (foiz bilan)
+model TeacherCourse {
+  id          String   @id @default(cuid())
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  percentage  Int      @default(50) // 40-60% oralig'ida
+  createdAt   DateTime @default(now())
+
+  @@unique([teacherId, courseId])
 }
 
 enum TeacherStatus {
@@ -112,30 +150,34 @@ model Course {
   name        String
   description String?
   duration    Int?     // soatda
-  price       Decimal  @db.Decimal(10, 2)
+  price       Decimal
   level       String?  // Beginner, Intermediate, Advanced
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  groups      Group[]
+  groups         Group[]
+  teacherCourses TeacherCourse[]
 }
 
 // Guruhlar
 model Group {
-  id          String      @id @default(cuid())
-  name        String
-  courseId    String
-  course      Course      @relation(fields: [courseId], references: [id])
-  teacherId   String
-  teacher     Teacher     @relation(fields: [teacherId], references: [id])
-  startDate   DateTime
-  endDate     DateTime?
-  status      GroupStatus @default(ACTIVE)
-  maxStudents Int?
-  roomNumber  String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id           String      @id @default(cuid())
+  name         String
+  courseId     String
+  course       Course      @relation(fields: [courseId], references: [id])
+  teacherId    String
+  teacher      Teacher     @relation(fields: [teacherId], references: [id])
+  startDate    DateTime
+  status       GroupStatus @default(ACTIVE)
+  roomNumber   String?
+  branch       String?     // Filial
+  price        Decimal?    // Guruh narxi (default kurs narxidan)
+  scheduleDays String?     // Dars kunlari: "1,3,5" (Dush, Chor, Juma)
+  startTime    String      // Dars boshlanish vaqti: "14:00" formatida
+  endTime      String      // Dars tugash vaqti: "16:00" formatida
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   groupStudents GroupStudent[]
   schedules     Schedule[]
@@ -151,13 +193,15 @@ enum GroupStatus {
 
 // Guruh-Talaba bog'lanishi
 model GroupStudent {
-  id          String   @id @default(cuid())
-  groupId     String
-  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  enrollDate  DateTime @default(now())
-  status      GroupStudentStatus @default(ACTIVE)
+  id              String   @id @default(cuid())
+  groupId         String
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollDate      DateTime @default(now())
+  status          GroupStudentStatus @default(ACTIVE)
+  price           Decimal? // Individual narx (default guruh narxi)
+  discountReason  String?  // Chegirma sababi
 
   @@unique([groupId, studentId])
 }
@@ -211,7 +255,7 @@ model Payment {
   id          String        @id @default(cuid())
   studentId   String
   student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  amount      Decimal       @db.Decimal(10, 2)
+  amount      Decimal
   paymentDate DateTime      @default(now())
   paymentType PaymentType
   method      PaymentMethod
@@ -244,7 +288,7 @@ model SalaryPayment {
   id          String        @id @default(cuid())
   teacherId   String
   teacher     Teacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  amount      Decimal       @db.Decimal(10, 2)
+  amount      Decimal
   paymentDate DateTime
   period      String        // "2024-01" (yil-oy)
   method      PaymentMethod
@@ -261,8 +305,8 @@ model TestResult {
   groupId   String
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   testName  String
-  score     Decimal  @db.Decimal(5, 2)
-  maxScore  Decimal  @db.Decimal(5, 2)
+  score     Decimal
+  maxScore  Decimal
   testDate  DateTime
   notes     String?
   createdAt DateTime @default(now())
@@ -300,7 +344,7 @@ enum NotificationStatus {
 model Expense {
   id          String        @id @default(cuid())
   category    String
-  amount      Decimal       @db.Decimal(10, 2)
+  amount      Decimal
   description String
   expenseDate DateTime
   method      PaymentMethod

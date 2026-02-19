@@ -4,10 +4,10 @@ import { verifyToken as verifyJWT } from '@/lib/auth'
 // Token payload interfeysi
 export interface TokenPayload {
   userId: string
-  email: string
+  username: string
   role: string
-  iat?: number
-  exp?: number
+  teacherId?: string
+  studentId?: string
 }
 
 // Request'ga user ma'lumotlarini qo'shish uchun
@@ -26,10 +26,12 @@ export function extractToken(request: NextRequest): string | null {
   }
 
   // Cookie'dan token olish (middleware tomonidan qo'shilgan header)
-  const cookieToken = request.headers.get('cookie')
+  const cookieStr = request.headers.get('cookie')
     ?.split(';')
     .find(c => c.trim().startsWith('token='))
-    ?.split('=')[1]
+
+  // Token ichida '=' belgisi bo'lishi mumkin, shuning uchun slice ishlatamiz
+  const cookieToken = cookieStr?.trim().slice('token='.length)
 
   if (cookieToken) {
     return cookieToken
@@ -51,15 +53,19 @@ export function extractToken(request: NextRequest): string | null {
 export function verifyTokenFromRequest(request: NextRequest): TokenPayload | null {
   // Avval middleware tomonidan qo'shilgan headerlarni tekshiramiz
   const userId = request.headers.get('x-user-id')
-  const userEmail = request.headers.get('x-user-email')
+  const username = request.headers.get('x-user-username')
   const userRole = request.headers.get('x-user-role')
+  const teacherId = request.headers.get('x-user-teacher-id')
+  const studentId = request.headers.get('x-user-student-id')
 
-  if (userId && userEmail && userRole) {
+  if (userId && username && userRole) {
     // Middleware allaqachon tokenni tekshirgan
     return {
       userId,
-      email: userEmail,
+      username,
       role: userRole,
+      ...(teacherId && { teacherId }),
+      ...(studentId && { studentId }),
     }
   }
 
@@ -70,7 +76,7 @@ export function verifyTokenFromRequest(request: NextRequest): TokenPayload | nul
   }
 
   const decoded = verifyJWT(token)
-  return decoded as TokenPayload | null
+  return decoded
 }
 
 /**

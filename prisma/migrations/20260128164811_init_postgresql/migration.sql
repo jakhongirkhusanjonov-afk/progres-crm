@@ -1,5 +1,8 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT');
+CREATE TYPE "UserRole" AS ENUM ('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'TEACHER', 'STUDENT');
+
+-- CreateEnum
+CREATE TYPE "Gender" AS ENUM ('MALE', 'FEMALE');
 
 -- CreateEnum
 CREATE TYPE "StudentStatus" AS ENUM ('ACTIVE', 'GRADUATED', 'SUSPENDED', 'DROPPED');
@@ -31,15 +34,17 @@ CREATE TYPE "NotificationStatus" AS ENUM ('PENDING', 'SENT', 'FAILED');
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
+    "email" TEXT,
     "username" TEXT NOT NULL,
     "password" TEXT NOT NULL,
-    "fullName" TEXT NOT NULL,
+    "plainPassword" TEXT,
+    "fullName" TEXT,
     "role" "UserRole" NOT NULL DEFAULT 'ADMIN',
     "phone" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "lastLogin" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -49,21 +54,16 @@ CREATE TABLE "Student" (
     "id" TEXT NOT NULL,
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
-    "middleName" TEXT,
     "phone" TEXT NOT NULL,
     "parentPhone" TEXT,
-    "email" TEXT,
     "dateOfBirth" TIMESTAMP(3),
-    "address" TEXT,
-    "passportSeries" TEXT,
-    "passportNumber" TEXT,
+    "gender" "Gender",
     "enrollmentDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "status" "StudentStatus" NOT NULL DEFAULT 'ACTIVE',
-    "photo" TEXT,
-    "notes" TEXT,
     "createdById" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "userId" TEXT,
 
     CONSTRAINT "Student_pkey" PRIMARY KEY ("id")
 );
@@ -81,15 +81,41 @@ CREATE TABLE "Teacher" (
     "specialization" TEXT,
     "experience" INTEGER,
     "education" TEXT,
-    "salary" DECIMAL(10,2),
+    "salary" DECIMAL(65,30),
     "status" "TeacherStatus" NOT NULL DEFAULT 'ACTIVE',
     "photo" TEXT,
     "hireDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdById" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "userId" TEXT,
 
     CONSTRAINT "Teacher_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Admin" (
+    "id" TEXT NOT NULL,
+    "firstName" TEXT NOT NULL,
+    "lastName" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "email" TEXT,
+    "userId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Admin_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TeacherCourse" (
+    "id" TEXT NOT NULL,
+    "teacherId" TEXT NOT NULL,
+    "courseId" TEXT NOT NULL,
+    "percentage" INTEGER NOT NULL DEFAULT 50,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TeacherCourse_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -98,7 +124,7 @@ CREATE TABLE "Course" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "duration" INTEGER,
-    "price" DECIMAL(10,2) NOT NULL,
+    "price" DECIMAL(65,30) NOT NULL,
     "level" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -114,10 +140,13 @@ CREATE TABLE "Group" (
     "courseId" TEXT NOT NULL,
     "teacherId" TEXT NOT NULL,
     "startDate" TIMESTAMP(3) NOT NULL,
-    "endDate" TIMESTAMP(3),
     "status" "GroupStatus" NOT NULL DEFAULT 'ACTIVE',
-    "maxStudents" INTEGER,
     "roomNumber" TEXT,
+    "branch" TEXT,
+    "price" DECIMAL(65,30),
+    "scheduleDays" TEXT,
+    "startTime" TEXT NOT NULL,
+    "endTime" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -131,6 +160,8 @@ CREATE TABLE "GroupStudent" (
     "studentId" TEXT NOT NULL,
     "enrollDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "status" "GroupStudentStatus" NOT NULL DEFAULT 'ACTIVE',
+    "price" DECIMAL(65,30),
+    "discountReason" TEXT,
 
     CONSTRAINT "GroupStudent_pkey" PRIMARY KEY ("id")
 );
@@ -168,7 +199,7 @@ CREATE TABLE "Attendance" (
 CREATE TABLE "Payment" (
     "id" TEXT NOT NULL,
     "studentId" TEXT NOT NULL,
-    "amount" DECIMAL(10,2) NOT NULL,
+    "amount" DECIMAL(65,30) NOT NULL,
     "paymentDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "paymentType" "PaymentType" NOT NULL,
     "method" "PaymentMethod" NOT NULL,
@@ -184,7 +215,7 @@ CREATE TABLE "Payment" (
 CREATE TABLE "SalaryPayment" (
     "id" TEXT NOT NULL,
     "teacherId" TEXT NOT NULL,
-    "amount" DECIMAL(10,2) NOT NULL,
+    "amount" DECIMAL(65,30) NOT NULL,
     "paymentDate" TIMESTAMP(3) NOT NULL,
     "period" TEXT NOT NULL,
     "method" "PaymentMethod" NOT NULL,
@@ -201,8 +232,8 @@ CREATE TABLE "TestResult" (
     "studentId" TEXT NOT NULL,
     "groupId" TEXT NOT NULL,
     "testName" TEXT NOT NULL,
-    "score" DECIMAL(5,2) NOT NULL,
-    "maxScore" DECIMAL(5,2) NOT NULL,
+    "score" DECIMAL(65,30) NOT NULL,
+    "maxScore" DECIMAL(65,30) NOT NULL,
     "testDate" TIMESTAMP(3) NOT NULL,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -231,7 +262,7 @@ CREATE TABLE "Notification" (
 CREATE TABLE "Expense" (
     "id" TEXT NOT NULL,
     "category" TEXT NOT NULL,
-    "amount" DECIMAL(10,2) NOT NULL,
+    "amount" DECIMAL(65,30) NOT NULL,
     "description" TEXT NOT NULL,
     "expenseDate" TIMESTAMP(3) NOT NULL,
     "method" "PaymentMethod" NOT NULL,
@@ -248,10 +279,19 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Teacher_phone_key" ON "Teacher"("phone");
+CREATE UNIQUE INDEX "Student_userId_key" ON "Student"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Teacher_email_key" ON "Teacher"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Teacher_userId_key" ON "Teacher"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Admin_userId_key" ON "Admin"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TeacherCourse_teacherId_courseId_key" ON "TeacherCourse"("teacherId", "courseId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "GroupStudent_groupId_studentId_key" ON "GroupStudent"("groupId", "studentId");
@@ -263,7 +303,22 @@ CREATE UNIQUE INDEX "Attendance_groupId_studentId_date_key" ON "Attendance"("gro
 ALTER TABLE "Student" ADD CONSTRAINT "Student_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Student" ADD CONSTRAINT "Student_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Teacher" ADD CONSTRAINT "Teacher_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Teacher" ADD CONSTRAINT "Teacher_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Admin" ADD CONSTRAINT "Admin_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TeacherCourse" ADD CONSTRAINT "TeacherCourse_teacherId_fkey" FOREIGN KEY ("teacherId") REFERENCES "Teacher"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TeacherCourse" ADD CONSTRAINT "TeacherCourse_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Group" ADD CONSTRAINT "Group_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

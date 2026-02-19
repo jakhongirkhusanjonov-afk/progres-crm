@@ -1,135 +1,205 @@
 import { PrismaClient, Gender, StudentStatus } from '@prisma/client'
-import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
+import pg from 'pg'
 import bcrypt from 'bcryptjs'
+import CryptoJS from 'crypto-js'
 import 'dotenv/config'
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL_DIRECT })
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL! })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
+const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || 'default-secret-key-change-in-production'
+
+function encrypt(text: string): string {
+  return CryptoJS.AES.encrypt(text, ENCRYPTION_SECRET).toString()
+}
+
 async function main() {
-  console.log('Seed boshlandi...')
+  console.log('Seed boshlandi...\n')
 
-  const hashedPassword = await bcrypt.hash('admin123', 10)
-
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@crm.uz' },
+  // ═══════════════════════════════════════════
+  // 1. SUPER ADMIN
+  // ═══════════════════════════════════════════
+  const superAdminPassword = 'admin123'
+  const superAdmin = await prisma.user.upsert({
+    where: { username: 'admin' },
     update: {},
     create: {
-      email: 'admin@crm.uz',
+      email: 'admin@compas.uz',
       username: 'admin',
-      password: hashedPassword,
-      fullName: 'Admin User',
+      password: await bcrypt.hash(superAdminPassword, 10),
+      plainPassword: encrypt(superAdminPassword),
+      fullName: 'Super Admin',
       role: 'SUPER_ADMIN',
-      phone: '+998901234567',
+      phone: '+998901000000',
+    },
+  })
+  console.log('SUPER_ADMIN yaratildi: admin / admin123')
+
+  // ═══════════════════════════════════════════
+  // 2. ADMIN (Resepshn)
+  // ═══════════════════════════════════════════
+  const receptionPassword = 'reception123'
+  const receptionUser = await prisma.user.upsert({
+    where: { username: 'reception' },
+    update: {},
+    create: {
+      email: 'reception@compas.uz',
+      username: 'reception',
+      password: await bcrypt.hash(receptionPassword, 10),
+      plainPassword: encrypt(receptionPassword),
+      fullName: 'Nodira Azimova',
+      role: 'ADMIN',
+      phone: '+998901000001',
     },
   })
 
-  console.log('Admin foydalanuvchi yaratildi:')
-  console.log('Email:', admin.email)
-  console.log('Username:', admin.username)
-  console.log('Parol: admin123')
-  console.log()
+  await prisma.admin.upsert({
+    where: { userId: receptionUser.id },
+    update: {},
+    create: {
+      firstName: 'Nodira',
+      lastName: 'Azimova',
+      phone: '+998901000001',
+      email: 'reception@compas.uz',
+      userId: receptionUser.id,
+    },
+  })
+  console.log('ADMIN (Resepshn) yaratildi: reception / reception123')
 
-  // Test talabalar qo'shish
-  const testStudents = [
+  // ═══════════════════════════════════════════
+  // 3. O'QITUVCHILAR (3 ta)
+  // ═══════════════════════════════════════════
+  const teachersData = [
     {
-      firstName: 'Aziz',
-      lastName: 'Rahimov',
-      middleName: 'Sharofovich',
-      phone: '+998901234501',
-      parentPhone: '+998901234502',
-      email: 'aziz.rahimov@example.com',
-      dateOfBirth: new Date('2005-03-15'),
-      gender: Gender.MALE,
-      address: 'Toshkent sh., Yunusobod tumani, 12-mavze, 45-uy',
-      status: StudentStatus.ACTIVE,
-      createdById: admin.id,
+      firstName: 'Abdulloh',
+      lastName: 'Karimov',
+      phone: '+998901100001',
+      email: 'abdulloh@compas.uz',
+      specialization: 'Ingliz tili',
+      experience: 5,
+      education: 'TDPU - Ingliz tili va adabiyoti',
+      salary: 5000000,
+      username: 'abdulloh.k',
+      password: 'teacher123',
     },
     {
-      firstName: 'Dilnoza',
-      lastName: 'Karimova',
-      middleName: 'Akmalovna',
-      phone: '+998901234503',
-      parentPhone: '+998901234504',
-      email: 'dilnoza.karimova@example.com',
-      dateOfBirth: new Date('2006-07-22'),
-      gender: Gender.FEMALE,
-      address: 'Toshkent sh., Chilonzor tumani, 5-kvartal, 12-uy',
-      status: StudentStatus.ACTIVE,
-      createdById: admin.id,
+      firstName: 'Sevara',
+      lastName: 'Rustamova',
+      phone: '+998901100002',
+      email: 'sevara@compas.uz',
+      specialization: 'Matematika',
+      experience: 3,
+      education: 'TATU - Amaliy matematika',
+      salary: 4500000,
+      username: 'sevara.r',
+      password: 'teacher123',
     },
     {
-      firstName: 'Jasur',
-      lastName: 'Yuldashev',
-      middleName: 'Baxtiyorovich',
-      phone: '+998901234505',
-      parentPhone: '+998901234506',
-      dateOfBirth: new Date('2004-11-08'),
-      gender: Gender.MALE,
-      address: 'Toshkent sh., Mirzo Ulug\'bek tumani, 8-mavze, 23-uy',
-      status: StudentStatus.ACTIVE,
-      createdById: admin.id,
-    },
-    {
-      firstName: 'Malika',
-      lastName: 'Toshmatova',
-      middleName: 'Rustamovna',
-      phone: '+998901234507',
-      parentPhone: '+998901234508',
-      email: 'malika.toshmatova@example.com',
-      dateOfBirth: new Date('2005-05-30'),
-      gender: Gender.FEMALE,
-      address: 'Toshkent sh., Yakkasaroy tumani, 3-mavze, 67-uy',
-      status: StudentStatus.ACTIVE,
-      createdById: admin.id,
-    },
-    {
-      firstName: 'Sardor',
-      lastName: 'Normatov',
-      middleName: 'Azimovich',
-      phone: '+998901234509',
-      parentPhone: '+998901234510',
-      dateOfBirth: new Date('2003-09-12'),
-      gender: Gender.MALE,
-      address: 'Toshkent sh., Sergeli tumani, 7-mavze, 34-uy',
-      status: StudentStatus.GRADUATED,
-      createdById: admin.id,
-    },
-    {
-      firstName: 'Nigora',
-      lastName: 'Abdullayeva',
-      middleName: 'Mahmudovna',
-      phone: '+998901234511',
-      parentPhone: '+998901234512',
-      email: 'nigora.abdullayeva@example.com',
-      dateOfBirth: new Date('2006-01-25'),
-      gender: Gender.FEMALE,
-      address: 'Toshkent sh., Uchtepa tumani, 15-mavze, 89-uy',
-      status: StudentStatus.ACTIVE,
-      createdById: admin.id,
+      firstName: 'Javohir',
+      lastName: 'Toshmatov',
+      phone: '+998901100003',
+      email: 'javohir@compas.uz',
+      specialization: 'Dasturlash (Python/JS)',
+      experience: 4,
+      education: 'TATU - Dasturiy injiniring',
+      salary: 6000000,
+      username: 'javohir.t',
+      password: 'teacher123',
     },
   ]
 
-  for (const studentData of testStudents) {
-    const { createdById, ...rest } = studentData
-    await prisma.student.upsert({
-      where: { phone: studentData.phone },
+  for (const t of teachersData) {
+    const teacherUser = await prisma.user.upsert({
+      where: { username: t.username },
       update: {},
       create: {
-        ...rest,
-        createdBy: {
-          connect: { id: admin.id }
-        }
+        email: t.email,
+        username: t.username,
+        password: await bcrypt.hash(t.password, 10),
+        plainPassword: encrypt(t.password),
+        fullName: `${t.firstName} ${t.lastName}`,
+        role: 'TEACHER',
+        phone: t.phone,
       },
     })
+
+    const existingTeacher = await prisma.teacher.findFirst({
+      where: { userId: teacherUser.id },
+    })
+
+    if (!existingTeacher) {
+      await prisma.teacher.create({
+        data: {
+          firstName: t.firstName,
+          lastName: t.lastName,
+          phone: t.phone,
+          email: t.email,
+          specialization: t.specialization,
+          experience: t.experience,
+          education: t.education,
+          salary: t.salary,
+          userId: teacherUser.id,
+          createdById: superAdmin.id,
+        },
+      })
+    }
+
+    console.log(`O'qituvchi yaratildi: ${t.username} / ${t.password}  (${t.firstName} ${t.lastName} - ${t.specialization})`)
   }
 
-  console.log(`${testStudents.length} ta test talaba qo'shildi`)
-  console.log()
+  // ═══════════════════════════════════════════
+  // 4. O'QUVCHILAR (10 ta)
+  // ═══════════════════════════════════════════
+  const studentsData = [
+    { firstName: 'Aziz', lastName: 'Rahimov', phone: '+998931200001', parentPhone: '+998901200001', gender: Gender.MALE, dateOfBirth: new Date('2007-03-15') },
+    { firstName: 'Dilnoza', lastName: 'Karimova', phone: '+998931200002', parentPhone: '+998901200002', gender: Gender.FEMALE, dateOfBirth: new Date('2008-07-22') },
+    { firstName: 'Jasur', lastName: 'Yuldashev', phone: '+998931200003', parentPhone: '+998901200003', gender: Gender.MALE, dateOfBirth: new Date('2006-11-08') },
+    { firstName: 'Malika', lastName: 'Toshmatova', phone: '+998931200004', parentPhone: '+998901200004', gender: Gender.FEMALE, dateOfBirth: new Date('2007-05-30') },
+    { firstName: 'Sardor', lastName: 'Normatov', phone: '+998931200005', parentPhone: '+998901200005', gender: Gender.MALE, dateOfBirth: new Date('2005-09-12') },
+    { firstName: 'Nigora', lastName: 'Abdullayeva', phone: '+998931200006', parentPhone: '+998901200006', gender: Gender.FEMALE, dateOfBirth: new Date('2008-01-25') },
+    { firstName: 'Bekzod', lastName: 'Sobirov', phone: '+998931200007', parentPhone: '+998901200007', gender: Gender.MALE, dateOfBirth: new Date('2006-04-18') },
+    { firstName: 'Shaxlo', lastName: 'Mirzayeva', phone: '+998931200008', parentPhone: '+998901200008', gender: Gender.FEMALE, dateOfBirth: new Date('2007-12-03') },
+    { firstName: 'Otabek', lastName: 'Xasanov', phone: '+998931200009', parentPhone: '+998901200009', gender: Gender.MALE, dateOfBirth: new Date('2006-08-14') },
+    { firstName: 'Kamola', lastName: 'Ismoilova', phone: '+998931200010', parentPhone: '+998901200010', gender: Gender.FEMALE, dateOfBirth: new Date('2007-10-07') },
+  ]
 
-  console.log('Seed tugadi!')
+  for (const s of studentsData) {
+    const existing = await prisma.student.findFirst({
+      where: { phone: s.phone },
+    })
+
+    if (!existing) {
+      await prisma.student.create({
+        data: {
+          firstName: s.firstName,
+          lastName: s.lastName,
+          phone: s.phone,
+          parentPhone: s.parentPhone,
+          gender: s.gender,
+          dateOfBirth: s.dateOfBirth,
+          status: StudentStatus.ACTIVE,
+          createdById: superAdmin.id,
+        },
+      })
+    }
+
+    console.log(`O'quvchi yaratildi: ${s.firstName} ${s.lastName}`)
+  }
+
+  console.log('\n════════════════════════════════════════════')
+  console.log('  SEED MUVAFFAQIYATLI YAKUNLANDI!')
+  console.log('════════════════════════════════════════════')
+  console.log('\nLogin ma\'lumotlari:')
+  console.log('──────────────────────────────────────────')
+  console.log('  SUPER ADMIN:  admin / admin123')
+  console.log('  RESEPSHN:     reception / reception123')
+  console.log('  O\'qituvchi 1: abdulloh.k / teacher123')
+  console.log('  O\'qituvchi 2: sevara.r / teacher123')
+  console.log('  O\'qituvchi 3: javohir.t / teacher123')
+  console.log('──────────────────────────────────────────')
+  console.log('  O\'quvchilar: 10 ta (login yo\'q)\n')
 }
 
 main()

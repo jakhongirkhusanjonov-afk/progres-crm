@@ -2,21 +2,21 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { logout } from '@/lib/auth-client'
+import DashboardLayout from '@/components/DashboardLayout'
+import MobileModal from '@/components/MobileModal'
 import {
-  Table,
   Button,
   Input,
-  Space,
   Tag,
   Modal,
   Form,
   Select,
   DatePicker,
   message,
-  Row,
-  Col,
   Card,
+  Empty,
+  Spin,
+  Pagination,
 } from 'antd'
 import {
   PlusOutlined,
@@ -24,11 +24,14 @@ import {
   EditOutlined,
   DeleteOutlined,
   UserOutlined,
+  EyeOutlined,
+  FilterOutlined,
+  PhoneOutlined,
+  TeamOutlined,
 } from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
+import { hasPermission } from '@/lib/permissions'
 
-const { Search } = Input
 const { Option } = Select
 
 // Talaba interfeysi
@@ -36,13 +39,10 @@ interface Student {
   id: string
   firstName: string
   lastName: string
-  middleName?: string
   phone: string
   parentPhone?: string
-  email?: string
   dateOfBirth?: string
   gender?: 'MALE' | 'FEMALE'
-  address?: string
   status: 'ACTIVE' | 'GRADUATED' | 'SUSPENDED' | 'DROPPED'
   enrollmentDate: string
   createdBy: {
@@ -63,13 +63,34 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [genderFilter, setGenderFilter] = useState<string>('')
+  const [userRole, setUserRole] = useState<string>('')
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  })
+
+  // User role olish
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      const user = JSON.parse(userData)
+      setUserRole(user.role || '')
+    }
+  }, [])
+
+  // Permission tekshirish
+  const canAddStudent = hasPermission(userRole, 'students', 'create')
+  const canEditStudent = hasPermission(userRole, 'students', 'update')
 
   // Talabalarni yuklash
-  const fetchStudents = async () => {
+  const fetchStudents = async (page = pagination.page) => {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
@@ -78,11 +99,12 @@ export default function StudentsPage() {
         return
       }
 
-      // Query parametrlarni tuzish
       const params = new URLSearchParams()
       if (searchText) params.append('search', searchText)
       if (statusFilter) params.append('status', statusFilter)
       if (genderFilter) params.append('gender', genderFilter)
+      params.append('page', page.toString())
+      params.append('limit', pagination.limit.toString())
 
       const response = await fetch(`/api/students?${params.toString()}`, {
         headers: {
@@ -94,6 +116,7 @@ export default function StudentsPage() {
 
       const data = await response.json()
       setStudents(data.students)
+      setPagination(data.pagination)
     } catch (error) {
       message.error('Talabalarni yuklashda xatolik')
       console.error('Error fetching students:', error)
@@ -103,10 +126,10 @@ export default function StudentsPage() {
   }
 
   useEffect(() => {
-    fetchStudents()
+    fetchStudents(1)
   }, [searchText, statusFilter, genderFilter])
 
-  // Modal ochish/yopish
+  // Modal
   const showModal = (student?: Student) => {
     if (student) {
       setEditingStudent(student)
@@ -166,32 +189,29 @@ export default function StudentsPage() {
       message.success(
         editingStudent
           ? 'Talaba muvaffaqiyatli yangilandi'
-          : 'Talaba muvaffaqiyatli qo\'shildi'
+          : "Talaba muvaffaqiyatli qo'shildi"
       )
       setIsModalOpen(false)
       form.resetFields()
       fetchStudents()
     } catch (error) {
       message.error('Xatolik yuz berdi')
-      console.error('Error saving student:', error)
     }
   }
 
-  // Talabani o'chirish (arxivga olish)
+  // Talabani o'chirish
   const handleDelete = (id: string) => {
     Modal.confirm({
       title: 'Talabani arxivga olish',
       content: 'Haqiqatan ham bu talabani arxivga olmoqchimisiz?',
       okText: 'Ha',
-      cancelText: 'Yo\'q',
+      cancelText: "Yo'q",
       onOk: async () => {
         try {
           const token = localStorage.getItem('token')
           const response = await fetch(`/api/students/${id}`, {
             method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           })
 
           if (!response.ok) throw new Error('Failed to delete')
@@ -199,352 +219,378 @@ export default function StudentsPage() {
           message.success('Talaba arxivga olindi')
           fetchStudents()
         } catch (error) {
-          message.error('Talabani o\'chirishda xatolik')
+          message.error("Talabani o'chirishda xatolik")
         }
       },
     })
   }
 
-  // Chiqish
-  const handleLogout = () => {
-    logout()
-    router.push('/login')
+  // Status rangi
+  const getStatusConfig = (status: string) => {
+    const config: Record<string, { color: string; text: string }> = {
+      ACTIVE: { color: 'green', text: 'Faol' },
+      GRADUATED: { color: 'blue', text: 'Bitirgan' },
+      SUSPENDED: { color: 'orange', text: "To'xtatilgan" },
+      DROPPED: { color: 'red', text: 'Arxiv' },
+    }
+    return config[status] || { color: 'default', text: status }
   }
 
-  // Jadval ustunlari
-  const columns: ColumnsType<Student> = [
-    {
-      title: 'F.I.O',
-      key: 'fullName',
-      render: (_, record) => (
-        <div>
-          <div className="font-medium">
-            {record.lastName} {record.firstName} {record.middleName}
-          </div>
-          {record.email && (
-            <div className="text-xs text-gray-500">{record.email}</div>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Telefon',
-      dataIndex: 'phone',
-      key: 'phone',
-    },
-    {
-      title: 'Jinsi',
-      dataIndex: 'gender',
-      key: 'gender',
-      render: (gender) => {
-        if (!gender) return '-'
-        return gender === 'MALE' ? (
-          <Tag color="blue">Erkak</Tag>
-        ) : (
-          <Tag color="pink">Ayol</Tag>
-        )
-      },
-    },
-    {
-      title: 'Guruhlar',
-      key: 'groups',
-      render: (_, record) => `${record.groupStudents.length} ta`,
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const statusConfig: Record<string, { color: string; text: string }> = {
-          ACTIVE: { color: 'green', text: 'Aktiv' },
-          GRADUATED: { color: 'blue', text: 'Bitirgan' },
-          SUSPENDED: { color: 'orange', text: 'To\'xtatilgan' },
-          DROPPED: { color: 'red', text: 'Arxiv' },
-        }
-        const config = statusConfig[status] || { color: 'default', text: status }
-        return <Tag color={config.color}>{config.text}</Tag>
-      },
-    },
-    {
-      title: 'Ro\'yxatdan o\'tgan',
-      dataIndex: 'enrollmentDate',
-      key: 'enrollmentDate',
-      render: (date) => new Date(date).toLocaleDateString('uz-UZ'),
-    },
-    {
-      title: 'Amallar',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => showModal(record)}
-          >
-            Tahrirlash
-          </Button>
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.id)}
-          >
-            Arxivga
-          </Button>
-        </Space>
-      ),
-    },
-  ]
+  // Filterlarni tozalash
+  const clearFilters = () => {
+    setStatusFilter('')
+    setGenderFilter('')
+    setSearchText('')
+    setIsFilterOpen(false)
+  }
+
+  // Active filter count
+  const activeFilterCount = [statusFilter, genderFilter].filter(Boolean).length
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <DashboardLayout>
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-8">
-              <h1
-                className="text-2xl font-bold text-indigo-600 cursor-pointer"
-                onClick={() => router.push('/dashboard')}
-              >
-                O'quv Markazi CRM
-              </h1>
-              <nav className="flex gap-4">
-                <a href="/dashboard" className="text-gray-600 hover:text-gray-900">
-                  Dashboard
-                </a>
-                <a
-                  href="/dashboard/students"
-                  className="text-indigo-600 font-medium"
-                >
-                  Talabalar
-                </a>
-              </nav>
-            </div>
-            <Button danger onClick={handleLogout}>
-              Chiqish
-            </Button>
+      <div className="mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900">Talabalar</h2>
+            <p className="text-xs md:text-sm text-gray-600">
+              Jami: {pagination.total} ta talaba
+            </p>
           </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-          <div className="mb-6 flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Talabalar</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Barcha talabalar ro'yxati va boshqaruv
-              </p>
-            </div>
+          {canAddStudent && (
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => showModal()}
+              onClick={() => router.push('/dashboard/students/new')}
               size="large"
+              className="w-full sm:w-auto h-11 md:h-10 text-base touch-manipulation"
             >
               Yangi talaba
             </Button>
-          </div>
-
-          {/* Filtrlar */}
-          <Row gutter={16} className="mb-4">
-            <Col span={12}>
-              <Search
-                placeholder="Ism, familiya yoki telefon bo'yicha qidirish"
-                allowClear
-                enterButton={<SearchOutlined />}
-                size="large"
-                onSearch={(value) => setSearchText(value)}
-                onChange={(e) => {
-                  if (!e.target.value) setSearchText('')
-                }}
-              />
-            </Col>
-            <Col span={6}>
-              <Select
-                placeholder="Status"
-                allowClear
-                size="large"
-                style={{ width: '100%' }}
-                onChange={(value) => setStatusFilter(value || '')}
-              >
-                <Option value="ACTIVE">Aktiv</Option>
-                <Option value="GRADUATED">Bitirgan</Option>
-                <Option value="SUSPENDED">To'xtatilgan</Option>
-                <Option value="DROPPED">Arxiv</Option>
-              </Select>
-            </Col>
-            <Col span={6}>
-              <Select
-                placeholder="Jinsi"
-                allowClear
-                size="large"
-                style={{ width: '100%' }}
-                onChange={(value) => setGenderFilter(value || '')}
-              >
-                <Option value="MALE">Erkak</Option>
-                <Option value="FEMALE">Ayol</Option>
-              </Select>
-            </Col>
-          </Row>
-
-          {/* Jadval */}
-          <Table
-            columns={columns}
-            dataSource={students}
-            loading={loading}
-            rowKey="id"
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showTotal: (total) => `Jami: ${total} ta talaba`,
-            }}
-          />
-        </Card>
+          )}
+        </div>
       </div>
 
-      {/* Modal - Talaba qo'shish/tahrirlash */}
-      <Modal
-        title={
-          <Space>
-            <UserOutlined />
-            {editingStudent ? 'Talabani tahrirlash' : 'Yangi talaba qo\'shish'}
-          </Space>
+      {/* Search and Filters */}
+      <div className="mb-4 space-y-3">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Qidirish..."
+            prefix={<SearchOutlined className="text-gray-400" />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+            className="flex-1 h-11"
+            style={{ fontSize: '16px' }}
+          />
+          <Button
+            icon={<FilterOutlined />}
+            onClick={() => setIsFilterOpen(true)}
+            size="large"
+            className="h-11 px-4 touch-manipulation"
+            type={activeFilterCount > 0 ? 'primary' : 'default'}
+          >
+            <span className="hidden sm:inline">Filter</span>
+            {activeFilterCount > 0 && (
+              <span className="ml-1 bg-white text-orange-500 rounded-full px-1.5 text-xs">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+        </div>
+
+        {/* Active filters display */}
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {statusFilter && (
+              <Tag closable onClose={() => setStatusFilter('')} className="text-sm py-1">
+                Status: {getStatusConfig(statusFilter).text}
+              </Tag>
+            )}
+            {genderFilter && (
+              <Tag closable onClose={() => setGenderFilter('')} className="text-sm py-1">
+                Jinsi: {genderFilter === 'MALE' ? 'Erkak' : 'Ayol'}
+              </Tag>
+            )}
+            <Button type="link" size="small" onClick={clearFilters}>
+              Tozalash
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Students List - Card view for mobile */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Spin size="large" />
+        </div>
+      ) : students.length === 0 ? (
+        <Empty
+          description="Talabalar topilmadi"
+          className="py-12"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        >
+          {canAddStudent && (
+            <Button type="primary" onClick={() => router.push('/dashboard/students/new')}>
+              Talaba qo'shish
+            </Button>
+          )}
+        </Empty>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {students.map((student) => (
+              <Card
+                key={student.id}
+                className="shadow-sm hover:shadow-md transition-shadow cursor-pointer active:bg-gray-50 touch-manipulation"
+                styles={{ body: { padding: '12px 16px' } }}
+                onClick={() => router.push(`/dashboard/students/${student.id}`)}
+              >
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                        <UserOutlined className="text-orange-500 text-lg" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 text-base truncate">
+                          {student.lastName} {student.firstName}
+                        </div>
+                        <div className="flex items-center gap-1 text-gray-500 text-sm">
+                          <PhoneOutlined className="text-xs" />
+                          <span>{student.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <Tag color={getStatusConfig(student.status).color} className="text-xs">
+                        {getStatusConfig(student.status).text}
+                      </Tag>
+                      {student.gender && (
+                        <Tag color={student.gender === 'MALE' ? 'blue' : 'pink'} className="text-xs">
+                          {student.gender === 'MALE' ? 'Erkak' : 'Ayol'}
+                        </Tag>
+                      )}
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <TeamOutlined />
+                        {student.groupStudents.length} ta guruh
+                      </span>
+                    </div>
+                  </div>
+                  {/* Actions */}
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/dashboard/students/${student.id}`)
+                      }}
+                      className="h-8 px-2"
+                    />
+                    {canEditStudent && (
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          showModal(student)
+                        }}
+                        className="h-8 px-2"
+                      />
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {pagination.total > pagination.limit && (
+            <div className="flex justify-center mt-6">
+              <Pagination
+                current={pagination.page}
+                total={pagination.total}
+                pageSize={pagination.limit}
+                onChange={(page) => {
+                  setPagination((prev) => ({ ...prev, page }))
+                  fetchStudents(page)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                showSizeChanger={false}
+                showTotal={(total) => `Jami: ${total}`}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Filter Modal */}
+      <MobileModal
+        open={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        title="Filterlar"
+        footer={
+          <div className="flex gap-3">
+            <Button block size="large" onClick={clearFilters} className="h-12">
+              Tozalash
+            </Button>
+            <Button block type="primary" size="large" onClick={() => setIsFilterOpen(false)} className="h-12">
+              Qo'llash
+            </Button>
+          </div>
         }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <Select
+              placeholder="Tanlang"
+              allowClear
+              size="large"
+              value={statusFilter || undefined}
+              onChange={(value) => setStatusFilter(value || '')}
+              className="w-full"
+              style={{ height: 48 }}
+            >
+              <Option value="ACTIVE">Faol</Option>
+              <Option value="GRADUATED">Bitirgan</Option>
+              <Option value="SUSPENDED">To'xtatilgan</Option>
+              <Option value="DROPPED">Arxiv</Option>
+            </Select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Jinsi</label>
+            <Select
+              placeholder="Tanlang"
+              allowClear
+              size="large"
+              value={genderFilter || undefined}
+              onChange={(value) => setGenderFilter(value || '')}
+              className="w-full"
+              style={{ height: 48 }}
+            >
+              <Option value="MALE">Erkak</Option>
+              <Option value="FEMALE">Ayol</Option>
+            </Select>
+          </div>
+        </div>
+      </MobileModal>
+
+      {/* Edit Student Modal */}
+      <MobileModal
         open={isModalOpen}
-        onCancel={handleCancel}
-        footer={null}
-        width={800}
+        onClose={handleCancel}
+        title={
+          <span className="flex items-center gap-2">
+            <UserOutlined />
+            {editingStudent ? 'Talabani tahrirlash' : "Yangi talaba qo'shish"}
+          </span>
+        }
+        footer={
+          <div className="flex gap-3">
+            <Button block size="large" onClick={handleCancel} className="h-12">
+              Bekor qilish
+            </Button>
+            <Button block type="primary" size="large" onClick={() => form.submit()} className="h-12">
+              {editingStudent ? 'Saqlash' : "Qo'shish"}
+            </Button>
+          </div>
+        }
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
           autoComplete="off"
+          requiredMark={false}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="Ism"
-                name="firstName"
-                rules={[{ required: true, message: 'Ism kiriting' }]}
-              >
-                <Input placeholder="Aziz" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="Familiya"
-                name="lastName"
-                rules={[{ required: true, message: 'Familiya kiriting' }]}
-              >
-                <Input placeholder="Rahimov" />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            label="Familiya"
+            name="lastName"
+            rules={[{ required: true, message: 'Familiya kiriting' }]}
+          >
+            <Input placeholder="Rahimov" size="large" className="h-12" style={{ fontSize: '16px' }} />
+          </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Otasining ismi" name="middleName">
-                <Input placeholder="Sharofovich" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="Jinsi"
-                name="gender"
-                rules={[{ required: true, message: 'Jinsini tanlang' }]}
-              >
-                <Select placeholder="Tanlang">
-                  <Option value="MALE">Erkak</Option>
-                  <Option value="FEMALE">Ayol</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            label="Ism"
+            name="firstName"
+            rules={[{ required: true, message: 'Ism kiriting' }]}
+          >
+            <Input placeholder="Aziz" size="large" className="h-12" style={{ fontSize: '16px' }} />
+          </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="Telefon"
-                name="phone"
-                rules={[
-                  { required: true, message: 'Telefon raqam kiriting' },
-                  {
-                    pattern: /^\+998\d{9}$/,
-                    message: '+998901234567 formatida kiriting',
-                  },
-                ]}
-              >
-                <Input placeholder="+998901234567" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="Ota-ona telefoni"
-                name="parentPhone"
-                rules={[
-                  {
-                    pattern: /^\+998\d{9}$/,
-                    message: '+998901234567 formatida kiriting',
-                  },
-                ]}
-              >
-                <Input placeholder="+998901234567" />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            label="Jinsi"
+            name="gender"
+            rules={[{ required: true, message: 'Jinsini tanlang' }]}
+          >
+            <Select placeholder="Tanlang" size="large" style={{ height: 48 }}>
+              <Option value="MALE">Erkak</Option>
+              <Option value="FEMALE">Ayol</Option>
+            </Select>
+          </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="Email"
-                name="email"
-                rules={[{ type: 'email', message: 'To\'g\'ri email kiriting' }]}
-              >
-                <Input placeholder="email@example.com" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Tug'ilgan sana" name="dateOfBirth">
-                <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item label="Tug'ilgan sana" name="dateOfBirth">
+            <DatePicker
+              style={{ width: '100%', height: 48 }}
+              format="DD.MM.YYYY"
+              size="large"
+              inputReadOnly
+            />
+          </Form.Item>
 
-          <Form.Item label="Manzil" name="address">
-            <Input.TextArea rows={2} placeholder="Toshkent sh., ..." />
+          <Form.Item
+            label="Telefon"
+            name="phone"
+            rules={[
+              { required: true, message: 'Telefon raqam kiriting' },
+              { pattern: /^\+998\d{9}$/, message: '+998901234567 formatida kiriting' },
+            ]}
+          >
+            <Input
+              placeholder="+998901234567"
+              size="large"
+              className="h-12"
+              style={{ fontSize: '16px' }}
+              type="tel"
+              inputMode="tel"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Ota-ona telefoni"
+            name="parentPhone"
+            rules={[
+              { pattern: /^\+998\d{9}$/, message: '+998901234567 formatida kiriting' },
+            ]}
+          >
+            <Input
+              placeholder="+998901234567"
+              size="large"
+              className="h-12"
+              style={{ fontSize: '16px' }}
+              type="tel"
+              inputMode="tel"
+            />
           </Form.Item>
 
           {editingStudent && (
             <Form.Item label="Status" name="status">
-              <Select>
-                <Option value="ACTIVE">Aktiv</Option>
+              <Select size="large" style={{ height: 48 }}>
+                <Option value="ACTIVE">Faol</Option>
                 <Option value="GRADUATED">Bitirgan</Option>
                 <Option value="SUSPENDED">To'xtatilgan</Option>
                 <Option value="DROPPED">Arxiv</Option>
               </Select>
             </Form.Item>
           )}
-
-          <Form.Item label="Izoh" name="notes">
-            <Input.TextArea rows={3} placeholder="Qo'shimcha ma'lumot..." />
-          </Form.Item>
-
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" size="large">
-                {editingStudent ? 'Saqlash' : 'Qo\'shish'}
-              </Button>
-              <Button onClick={handleCancel} size="large">
-                Bekor qilish
-              </Button>
-            </Space>
-          </Form.Item>
         </Form>
-      </Modal>
-    </div>
+      </MobileModal>
+    </DashboardLayout>
   )
 }

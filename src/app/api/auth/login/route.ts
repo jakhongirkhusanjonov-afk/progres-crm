@@ -14,13 +14,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // User'ni topish (username yoki email bilan)
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { username },
-          { email: username }
+          { username: username.toLowerCase() },
+          { email: username.toLowerCase() }
         ],
-        isActive: true
+      },
+      include: {
+        teacher: {
+          select: { id: true, firstName: true, lastName: true }
+        },
+        student: {
+          select: { id: true, firstName: true, lastName: true }
+        }
       }
     })
 
@@ -31,6 +39,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Parolni tekshirish
     const isPasswordValid = await verifyPassword(password, user.password)
 
     if (!isPasswordValid) {
@@ -40,7 +49,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const token = generateToken(user.id, user.email, user.role)
+    // Active holatini tekshirish
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: 'Accountingiz bloklangan. Administrator bilan bog\'laning.' },
+        { status: 403 }
+      )
+    }
+
+    // lastLogin yangilash
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
+    })
+
+    // Teacher yoki Student ID olish
+    const teacherId = user.teacher?.id
+    const studentId = user.student?.id
+
+    // Token yaratish
+    const token = generateToken(
+      user.id,
+      user.username,
+      user.role,
+      teacherId,
+      studentId
+    )
+
+    // Redirect URL aniqlash
+    let redirectUrl = '/dashboard'
+    if (user.role === 'TEACHER' && teacherId) {
+      redirectUrl = `/dashboard/teachers/${teacherId}`
+    } else if (user.role === 'STUDENT' && studentId) {
+      redirectUrl = `/dashboard/students/${studentId}`
+    }
 
     return NextResponse.json({
       success: true,
@@ -48,10 +90,13 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         username: user.username,
-        fullName: user.fullName,
+        fullName: user.fullName || (user.teacher ? `${user.teacher.firstName} ${user.teacher.lastName}` : user.student ? `${user.student.firstName} ${user.student.lastName}` : null),
         role: user.role,
+        teacherId,
+        studentId,
       },
       token,
+      redirectUrl,
     })
   } catch (error) {
     console.error('Login error:', error)
