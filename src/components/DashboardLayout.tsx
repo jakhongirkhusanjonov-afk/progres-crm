@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useMemo } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import Link from 'next/link'
-import { logout } from '@/lib/auth-client'
-import { Drawer, Button } from 'antd'
+import { useState, useEffect, useMemo } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { logout } from "@/lib/auth-client";
+import { Drawer, Button } from "antd";
 import {
   MenuOutlined,
   CloseOutlined,
@@ -22,113 +22,113 @@ import {
   CheckCircleOutlined,
   SafetyCertificateOutlined,
   FileExcelOutlined,
-} from '@ant-design/icons'
-import { NAVIGATION_ITEMS, ROLE_LABELS, Role } from '@/lib/permissions'
-import CompasLogo from './CompasLogo'
+} from "@ant-design/icons";
+import { NAVIGATION_ITEMS, ROLE_LABELS, Role } from "@/lib/permissions";
+import NURMAKONLogo from "./NURMAKONLogo";
 
 interface DashboardLayoutProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 // Icon mapping
 const iconMap: Record<string, React.ReactNode> = {
-  'dashboard': <HomeOutlined />,
-  'users': <UserOutlined />,
-  'teacher': <TeamOutlined />,
-  'group': <BookOutlined />,
-  'book': <AppstoreOutlined />,
-  'payment': <DollarOutlined />,
-  'calendar': <CalendarOutlined />,
-  'money': <WalletOutlined />,
-  'users-cog': <SettingOutlined />,
-  'user': <ProfileOutlined />,
-  'check': <CheckCircleOutlined />,
-  'admin': <SafetyCertificateOutlined />,
-  'settings': <SettingOutlined />,
-  'report': <FileExcelOutlined />,
-}
+  dashboard: <HomeOutlined />,
+  users: <UserOutlined />,
+  teacher: <TeamOutlined />,
+  group: <BookOutlined />,
+  book: <AppstoreOutlined />,
+  payment: <DollarOutlined />,
+  calendar: <CalendarOutlined />,
+  money: <WalletOutlined />,
+  "users-cog": <SettingOutlined />,
+  user: <ProfileOutlined />,
+  check: <CheckCircleOutlined />,
+  admin: <SafetyCertificateOutlined />,
+  settings: <SettingOutlined />,
+  report: <FileExcelOutlined />,
+};
 
 // Get icon by name
 const getIcon = (iconName?: string): React.ReactNode => {
-  if (!iconName) return <HomeOutlined />
-  return iconMap[iconName] || <HomeOutlined />
-}
+  if (!iconName) return <HomeOutlined />;
+  return iconMap[iconName] || <HomeOutlined />;
+};
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [user, setUser] = useState<any>(null)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
+  const router = useRouter();
+  const pathname = usePathname();
+  const [user, setUser] = useState<any>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
-    const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
+    const token = localStorage.getItem("token");
+    const userData = localStorage.getItem("user");
 
     if (!token || !userData) {
-      router.push('/login')
-      return
+      router.push("/login");
+      return;
     }
 
-    setUser(JSON.parse(userData))
+    setUser(JSON.parse(userData));
 
     // Check screen size
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [router])
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [router]);
 
   // Get navigation items based on user role
   const navItems = useMemo(() => {
-    if (!user?.role) return []
-    const items = NAVIGATION_ITEMS[user.role as Role] || []
-    return items.map(item => {
+    if (!user?.role) return [];
+    const items = NAVIGATION_ITEMS[user.role as Role] || [];
+    return items.map((item) => {
       // Handle dynamic URLs for STUDENT
-      let href = item.href
-      if (user.role === 'STUDENT' && user.studentId) {
-        href = href.replace('{studentId}', user.studentId)
+      let href = item.href;
+      if (user.role === "STUDENT" && user.studentId) {
+        href = href.replace("{studentId}", user.studentId);
       }
       return {
         ...item,
         href,
-        icon: getIcon(item.icon)
-      }
-    })
-  }, [user?.role, user?.studentId])
+        icon: getIcon(item.icon),
+      };
+    });
+  }, [user?.role, user?.studentId]);
 
   // Bottom navigation items (first 4 items for mobile)
   const bottomNavItems = useMemo(() => {
-    return navItems.slice(0, 4)
-  }, [navItems])
+    return navItems.slice(0, 4);
+  }, [navItems]);
 
   // Get role label
   const roleLabel = useMemo(() => {
-    if (!user?.role) return ''
-    return ROLE_LABELS[user.role as Role] || user.role
-  }, [user?.role])
+    if (!user?.role) return "";
+    return ROLE_LABELS[user.role as Role] || user.role;
+  }, [user?.role]);
 
   const handleLogout = () => {
-    logout()
-    router.push('/login')
-  }
+    logout();
+    router.push("/login");
+  };
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') {
-      return pathname === '/dashboard'
+    if (href === "/dashboard") {
+      return pathname === "/dashboard";
     }
-    return pathname.startsWith(href)
-  }
+    return pathname.startsWith(href);
+  };
 
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -150,8 +150,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
               {/* Logo */}
               <Link href="/dashboard" className="flex items-center gap-2">
-                <CompasLogo width={36} height={36} className="md:hidden" />
-                <CompasLogo width={44} height={44} className="hidden md:flex" />
+                <NURMAKONLogo width={36} height={36} className="md:hidden" />
+                <NURMAKONLogo
+                  width={44}
+                  height={44}
+                  className="hidden md:flex"
+                />
               </Link>
 
               {/* Desktop Navigation */}
@@ -162,8 +166,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     href={item.href}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive(item.href)
-                        ? 'text-orange-600 bg-orange-50'
-                        : 'text-gray-600 hover:text-orange-600 hover:bg-orange-50'
+                        ? "text-orange-600 bg-orange-50"
+                        : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
                     }`}
                   >
                     {item.label}
@@ -207,7 +211,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         closeIcon={<CloseOutlined className="text-lg" />}
         styles={{
           body: { padding: 0 },
-          header: { borderBottom: '1px solid #f0f0f0' }
+          header: { borderBottom: "1px solid #f0f0f0" },
         }}
       >
         {/* User Info in Drawer */}
@@ -226,8 +230,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center gap-3 px-4 py-3 text-base transition-colors touch-manipulation ${
                 isActive(item.href)
-                  ? 'text-orange-600 bg-orange-50 border-r-4 border-orange-500'
-                  : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  ? "text-orange-600 bg-orange-50 border-r-4 border-orange-500"
+                  : "text-gray-700 hover:bg-gray-50 active:bg-gray-100"
               }`}
               style={{ minHeight: 48 }}
             >
@@ -266,11 +270,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               href={item.href}
               className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors touch-manipulation ${
                 isActive(item.href)
-                  ? 'text-orange-600'
-                  : 'text-gray-500 active:text-orange-500'
+                  ? "text-orange-600"
+                  : "text-gray-500 active:text-orange-500"
               }`}
             >
-              <span className={`text-xl mb-0.5 ${isActive(item.href) ? 'scale-110' : ''}`}>
+              <span
+                className={`text-xl mb-0.5 ${isActive(item.href) ? "scale-110" : ""}`}
+              >
                 {item.icon}
               </span>
               <span className="text-xs font-medium">{item.label}</span>
@@ -279,5 +285,5 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </nav>
     </div>
-  )
+  );
 }

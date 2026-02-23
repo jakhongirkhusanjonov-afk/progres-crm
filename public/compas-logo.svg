@@ -40,7 +40,7 @@
   <circle cx="250" cy="180" r="140" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.08"/>
   <circle cx="250" cy="180" r="155" fill="none" stroke="#60a5fa" stroke-width="1" opacity="0.05"/>
   
-  <!-- Hexagon icon with compass -->
+  <!-- Hexagon icon with NURMAKONs -->
   <g filter="url(#shadow)">
     <path d="M 250 95 L 310 125 L 310 185 L 250 215 L 190 185 L 190 125 Z" 
           fill="url(#iconGrad)" 
@@ -53,7 +53,7 @@
         fill="#1e40af" 
         opacity="0.7"/>
   
-  <!-- Compass rose -->
+  <!-- NURMAKONs rose -->
   <g transform="translate(250, 155)">
     <!-- North pointer (red, prominent) -->
     <g filter="url(#glow)">
@@ -103,42 +103,42 @@
     <polygon points="335,240 338,247 345,247 339,252 342,259 335,254 328,259 331,252 325,247 332,247"/>
   </g>
   
-  <!-- 3D COMPAS TEXT WITH DEPTH -->
+  <!-- 3D NURMAKON TEXT WITH DEPTH -->
   <g filter="url(#shadow)">
     <!-- 3D depth layers (back to front) -->
     <!-- Layer 5 (deepest) -->
     <text x="255" y="345" font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
           font-size="68" font-weight="900" fill="#0f172a" text-anchor="middle" 
           letter-spacing="8" opacity="0.3">
-      COMPAS
+      NURMAKON
     </text>
     
     <!-- Layer 4 -->
     <text x="254" y="344" font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
           font-size="68" font-weight="900" fill="#1e293b" text-anchor="middle" 
           letter-spacing="8" opacity="0.4">
-      COMPAS
+      NURMAKON
     </text>
     
     <!-- Layer 3 -->
     <text x="253" y="343" font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
           font-size="68" font-weight="900" fill="#334155" text-anchor="middle" 
           letter-spacing="8" opacity="0.5">
-      COMPAS
+      NURMAKON
     </text>
     
     <!-- Layer 2 -->
     <text x="252" y="342" font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
           font-size="68" font-weight="900" fill="url(#textSide)" text-anchor="middle" 
           letter-spacing="8" opacity="0.8">
-      COMPAS
+      NURMAKON
     </text>
     
     <!-- Top layer (main text) -->
     <text x="250" y="340" font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
           font-size="68" font-weight="900" fill="url(#textTop)" text-anchor="middle" 
           letter-spacing="8" stroke="#1e3a8a" stroke-width="1">
-      COMPAS
+      NURMAKON
     </text>
     
     <!-- Highlight on top -->
@@ -146,7 +146,7 @@
           font-size="68" font-weight="900" fill="url(#lightBlue)" text-anchor="middle" 
           letter-spacing="8" opacity="0.2" 
           style="clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%)">
-      COMPAS
+      NURMAKON
     </text>
   </g>
   

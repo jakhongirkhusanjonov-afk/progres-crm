@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import DashboardLayout from '@/components/DashboardLayout'
-import MobileModal from '@/components/MobileModal'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import DashboardLayout from "@/components/DashboardLayout";
+import MobileModal from "@/components/MobileModal";
 import {
   Button,
   Select,
@@ -16,8 +16,8 @@ import {
   message,
   Empty,
   Spin,
-  Progress,
-} from 'antd'
+  NURMAKONs,
+} from "antd";
 import {
   DollarOutlined,
   UserOutlined,
@@ -26,107 +26,111 @@ import {
   ExclamationCircleOutlined,
   EyeOutlined,
   WalletOutlined,
-} from '@ant-design/icons'
-import dayjs from 'dayjs'
+} from "@ant-design/icons";
+import dayjs from "dayjs";
 
-const { Option } = Select
+const { Option } = Select;
 
 interface TeacherSalary {
   teacher: {
-    id: string
-    firstName: string
-    lastName: string
-    phone: string
-  }
-  period: string
-  groupsCount: number
-  groupDetails: any[]
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+  };
+  period: string;
+  groupsCount: number;
+  groupDetails: any[];
   summary: {
-    totalStudentPayments: number
-    totalTeacherShare: number
-    totalSalary: number
-    paidAmount: number
-    debt: number
-  }
+    totalStudentPayments: number;
+    totalTeacherShare: number;
+    totalSalary: number;
+    paidAmount: number;
+    debt: number;
+  };
 }
 
 interface SalaryStats {
-  teachersCount: number
-  totalSalary: number
-  totalPaid: number
-  totalDebt: number
+  teachersCount: number;
+  totalSalary: number;
+  totalPaid: number;
+  totalDebt: number;
 }
 
 export default function SalaryPage() {
-  const router = useRouter()
-  const [form] = Form.useForm()
+  const router = useRouter();
+  const [form] = Form.useForm();
 
   // State
-  const [salaries, setSalaries] = useState<TeacherSalary[]>([])
-  const [stats, setStats] = useState<SalaryStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [selectedMonth, setSelectedMonth] = useState<string>(dayjs().format('YYYY-MM'))
-  const [isPayModalOpen, setIsPayModalOpen] = useState(false)
-  const [selectedTeacher, setSelectedTeacher] = useState<TeacherSalary | null>(null)
-  const [paying, setPaying] = useState(false)
+  const [salaries, setSalaries] = useState<TeacherSalary[]>([]);
+  const [stats, setStats] = useState<SalaryStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    dayjs().format("YYYY-MM"),
+  );
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<TeacherSalary | null>(
+    null,
+  );
+  const [paying, setPaying] = useState(false);
 
   // Maoshlarni yuklash
   const fetchSalaries = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       if (!token) {
-        router.push('/login')
-        return
+        router.push("/login");
+        return;
       }
 
       const response = await fetch(`/api/salary?month=${selectedMonth}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to fetch')
+      if (!response.ok) throw new Error("Failed to fetch");
 
-      const data = await response.json()
-      setSalaries(data.salaries)
-      setStats(data.stats)
+      const data = await response.json();
+      setSalaries(data.salaries);
+      setStats(data.stats);
     } catch (error) {
-      message.error('Maoshlarni yuklashda xatolik')
-      console.error('Error fetching salaries:', error)
+      message.error("Maoshlarni yuklashda xatolik");
+      console.error("Error fetching salaries:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchSalaries()
-  }, [selectedMonth])
+    fetchSalaries();
+  }, [selectedMonth]);
 
   // Maosh to'lash modalni ochish
   const showPayModal = (salary: TeacherSalary) => {
-    setSelectedTeacher(salary)
+    setSelectedTeacher(salary);
     form.setFieldsValue({
       amount: salary.summary.debt,
       paymentDate: dayjs(),
-      method: 'CASH',
-      notes: '',
-    })
-    setIsPayModalOpen(true)
-  }
+      method: "CASH",
+      notes: "",
+    });
+    setIsPayModalOpen(true);
+  };
 
   // Maosh to'lash
   const handlePay = async (values: any) => {
-    if (!selectedTeacher) return
+    if (!selectedTeacher) return;
 
-    setPaying(true)
+    setPaying(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
 
-      const response = await fetch('/api/salary', {
-        method: 'POST',
+      const response = await fetch("/api/salary", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -137,51 +141,53 @@ export default function SalaryPage() {
           method: values.method,
           notes: values.notes || null,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        message.error(data.error || 'Xatolik yuz berdi')
-        return
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
       }
 
-      message.success("Maosh to'lovi muvaffaqiyatli saqlandi")
-      setIsPayModalOpen(false)
-      form.resetFields()
-      setSelectedTeacher(null)
-      fetchSalaries()
+      message.success("Maosh to'lovi muvaffaqiyatli saqlandi");
+      setIsPayModalOpen(false);
+      form.resetFields();
+      setSelectedTeacher(null);
+      fetchSalaries();
     } catch (error) {
-      message.error('Xatolik yuz berdi')
-      console.error('Error paying salary:', error)
+      message.error("Xatolik yuz berdi");
+      console.error("Error paying salary:", error);
     } finally {
-      setPaying(false)
+      setPaying(false);
     }
-  }
+  };
 
   // Narxni formatlash
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + " so'm"
-  }
+    return new Intl.NumberFormat("uz-UZ").format(price) + " so'm";
+  };
 
   // Oylar ro'yxati
   const getMonthOptions = () => {
-    const months = []
+    const months = [];
     for (let i = 0; i < 12; i++) {
-      const month = dayjs().subtract(i, 'month')
+      const month = dayjs().subtract(i, "month");
       months.push({
-        value: month.format('YYYY-MM'),
-        label: month.format('MMMM YYYY'),
-      })
+        value: month.format("YYYY-MM"),
+        label: month.format("MMMM YYYY"),
+      });
     }
-    return months
-  }
+    return months;
+  };
 
   // To'langan foiz
   const getPaidPercentage = (salary: TeacherSalary) => {
-    if (salary.summary.totalSalary === 0) return 100
-    return Math.round((salary.summary.paidAmount / salary.summary.totalSalary) * 100)
-  }
+    if (salary.summary.totalSalary === 0) return 100;
+    return Math.round(
+      (salary.summary.paidAmount / salary.summary.totalSalary) * 100,
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -216,24 +222,30 @@ export default function SalaryPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4">
         <div className="bg-blue-50 rounded-xl p-2 md:p-3 text-center border border-blue-100">
-          <div className="text-blue-600 font-bold text-lg md:text-xl">{stats?.teachersCount || 0}</div>
-          <div className="text-blue-600 text-[10px] md:text-xs">O'qituvchilar</div>
+          <div className="text-blue-600 font-bold text-lg md:text-xl">
+            {stats?.teachersCount || 0}
+          </div>
+          <div className="text-blue-600 text-[10px] md:text-xs">
+            O'qituvchilar
+          </div>
         </div>
         <div className="bg-indigo-50 rounded-xl p-2 md:p-3 text-center border border-indigo-100">
           <div className="text-indigo-600 font-bold text-sm md:text-lg truncate">
-            {formatPrice(stats?.totalSalary || 0).replace(" so'm", '')}
+            {formatPrice(stats?.totalSalary || 0).replace(" so'm", "")}
           </div>
-          <div className="text-indigo-600 text-[10px] md:text-xs">Jami maosh</div>
+          <div className="text-indigo-600 text-[10px] md:text-xs">
+            Jami maosh
+          </div>
         </div>
         <div className="bg-green-50 rounded-xl p-2 md:p-3 text-center border border-green-100">
           <div className="text-green-600 font-bold text-sm md:text-lg truncate">
-            {formatPrice(stats?.totalPaid || 0).replace(" so'm", '')}
+            {formatPrice(stats?.totalPaid || 0).replace(" so'm", "")}
           </div>
           <div className="text-green-600 text-[10px] md:text-xs">To'langan</div>
         </div>
         <div className="bg-red-50 rounded-xl p-2 md:p-3 text-center border border-red-100">
           <div className="text-red-600 font-bold text-sm md:text-lg truncate">
-            {formatPrice(stats?.totalDebt || 0).replace(" so'm", '')}
+            {formatPrice(stats?.totalDebt || 0).replace(" so'm", "")}
           </div>
           <div className="text-red-600 text-[10px] md:text-xs">Qarz</div>
         </div>
@@ -256,7 +268,7 @@ export default function SalaryPage() {
             <Card
               key={salary.teacher.id}
               className="shadow-sm hover:shadow-md transition-shadow touch-manipulation"
-              styles={{ body: { padding: '12px 16px' } }}
+              styles={{ body: { padding: "12px 16px" } }}
             >
               <div className="flex justify-between items-start gap-3">
                 <div className="min-w-0 flex-1">
@@ -269,13 +281,19 @@ export default function SalaryPage() {
                       <div className="font-semibold text-gray-900 text-base truncate">
                         {salary.teacher.lastName} {salary.teacher.firstName}
                       </div>
-                      <div className="text-xs text-gray-500">{salary.teacher.phone}</div>
+                      <div className="text-xs text-gray-500">
+                        {salary.teacher.phone}
+                      </div>
                     </div>
                   </div>
 
                   {/* Guruhlar soni */}
                   <div className="flex items-center gap-2 mb-2">
-                    <Tag icon={<TeamOutlined />} color="blue" className="text-xs">
+                    <Tag
+                      icon={<TeamOutlined />}
+                      color="blue"
+                      className="text-xs"
+                    >
                       {salary.groupsCount} ta guruh
                     </Tag>
                   </div>
@@ -304,16 +322,16 @@ export default function SalaryPage() {
                     )}
                   </div>
 
-                  {/* Progress */}
-                  <Progress
+                  {/* NURMAKONs */}
+                  <NURMAKONs
                     percent={getPaidPercentage(salary)}
                     size="small"
                     status={
                       salary.summary.debt === 0
-                        ? 'success'
+                        ? "success"
                         : getPaidPercentage(salary) >= 50
-                          ? 'normal'
-                          : 'exception'
+                          ? "normal"
+                          : "exception"
                     }
                     format={(percent) => `${percent}%`}
                   />
@@ -340,7 +358,7 @@ export default function SalaryPage() {
                     icon={<EyeOutlined />}
                     onClick={() =>
                       router.push(
-                        `/dashboard/salary/teacher/${salary.teacher.id}?month=${selectedMonth}`
+                        `/dashboard/salary/teacher/${salary.teacher.id}?month=${selectedMonth}`,
                       )
                     }
                     className="h-8 px-2"
@@ -365,9 +383,9 @@ export default function SalaryPage() {
       <MobileModal
         open={isPayModalOpen}
         onClose={() => {
-          setIsPayModalOpen(false)
-          form.resetFields()
-          setSelectedTeacher(null)
+          setIsPayModalOpen(false);
+          form.resetFields();
+          setSelectedTeacher(null);
         }}
         title={
           <span className="flex items-center gap-2">
@@ -381,9 +399,9 @@ export default function SalaryPage() {
               block
               size="large"
               onClick={() => {
-                setIsPayModalOpen(false)
-                form.resetFields()
-                setSelectedTeacher(null)
+                setIsPayModalOpen(false);
+                form.resetFields();
+                setSelectedTeacher(null);
               }}
               className="h-12"
             >
@@ -408,7 +426,8 @@ export default function SalaryPage() {
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
               <div className="text-gray-600 text-sm">O'qituvchi:</div>
               <div className="font-medium text-lg">
-                {selectedTeacher.teacher.lastName} {selectedTeacher.teacher.firstName}
+                {selectedTeacher.teacher.lastName}{" "}
+                {selectedTeacher.teacher.firstName}
               </div>
               <div className="mt-3 space-y-1 text-sm">
                 <div className="flex justify-between">
@@ -442,19 +461,23 @@ export default function SalaryPage() {
                 label="Summa"
                 name="amount"
                 rules={[
-                  { required: true, message: 'Summani kiriting' },
-                  { type: 'number', min: 1000, message: "Minimal summa: 1,000 so'm" },
+                  { required: true, message: "Summani kiriting" },
+                  {
+                    type: "number",
+                    min: 1000,
+                    message: "Minimal summa: 1,000 so'm",
+                  },
                 ]}
               >
                 <InputNumber
-                  style={{ width: '100%' }}
+                  style={{ width: "100%" }}
                   size="large"
                   className="h-12"
                   min={0}
                   formatter={(value) =>
-                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, " ")
                   }
-                  parser={(value) => value!.replace(/\s/g, '') as any}
+                  parser={(value) => value!.replace(/\s/g, "") as any}
                   inputMode="numeric"
                 />
               </Form.Item>
@@ -463,10 +486,10 @@ export default function SalaryPage() {
                 <Form.Item
                   label="Sana"
                   name="paymentDate"
-                  rules={[{ required: true, message: 'Sanani tanlang' }]}
+                  rules={[{ required: true, message: "Sanani tanlang" }]}
                 >
                   <DatePicker
-                    style={{ width: '100%', height: 48 }}
+                    style={{ width: "100%", height: 48 }}
                     size="large"
                     format="DD.MM.YYYY"
                     inputReadOnly
@@ -475,7 +498,7 @@ export default function SalaryPage() {
                 <Form.Item
                   label="To'lov usuli"
                   name="method"
-                  rules={[{ required: true, message: 'Usulni tanlang' }]}
+                  rules={[{ required: true, message: "Usulni tanlang" }]}
                 >
                   <Select size="large" style={{ height: 48 }}>
                     <Option value="CASH">Naqd</Option>
@@ -492,7 +515,7 @@ export default function SalaryPage() {
                 <Input.TextArea
                   rows={2}
                   placeholder="Qo'shimcha izoh..."
-                  style={{ fontSize: '16px' }}
+                  style={{ fontSize: "16px" }}
                 />
               </Form.Item>
             </Form>
@@ -500,5 +523,5 @@ export default function SalaryPage() {
         )}
       </MobileModal>
     </DashboardLayout>
-  )
+  );
 }

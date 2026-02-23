@@ -1,5 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
-import { AntdRegistry } from '@ant-design/nextjs-registry';
+import { AntdRegistry } from "@ant-design/nextjs-registry";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,12 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "COMPAS - Rivojlanish markazi",
-  description: "COMPAS o'quv markazi CRM tizimi",
+  title: "NURMAKON - Rivojlanish markazi",
+  description: "NURMAKON o'quv markazi CRM tizimi",
   icons: {
-    icon: '/compas-logo.svg',
-    shortcut: '/compas-logo.svg',
-    apple: '/compas-logo.svg',
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
   },
 };
 

@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { logout } from '@/lib/auth-client'
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { logout } from "@/lib/auth-client";
 import {
   Button,
   Card,
@@ -24,8 +24,8 @@ import {
   DatePicker,
   Space,
   Popconfirm,
-} from 'antd'
-import CompasLogo from '@/components/CompasLogo'
+} from "antd";
+import NURMAKONLogo from "@/components/NURMAKONLogo";
 import {
   ArrowLeftOutlined,
   UserOutlined,
@@ -36,157 +36,164 @@ import {
   WalletOutlined,
   BookOutlined,
   DeleteOutlined,
-} from '@ant-design/icons'
-import dayjs from 'dayjs'
+} from "@ant-design/icons";
+import dayjs from "dayjs";
 
-const { Option } = Select
-const { Panel } = Collapse
+const { Option } = Select;
+const { Panel } = Collapse;
 
 interface GroupDetail {
   group: {
-    id: string
-    name: string
+    id: string;
+    name: string;
     course: {
-      id: string
-      name: string
-    }
-    scheduleDays: string
-  }
+      id: string;
+      name: string;
+    };
+    scheduleDays: string;
+  };
   students: {
-    id: string
-    name: string
-    phone: string
-    price: number
-    discountReason?: string
-  }[]
-  studentCount: number
-  groupPrice: number
-  totalStudentPayments: number
-  teacherPercentage: number
+    id: string;
+    name: string;
+    phone: string;
+    price: number;
+    discountReason?: string;
+  }[];
+  studentCount: number;
+  groupPrice: number;
+  totalStudentPayments: number;
+  teacherPercentage: number;
   lessons: {
-    date: string
-    present: number
-    absent: number
-    total: number
-  }[]
-  lessonsCount: number
-  expectedLessons: number
-  attendanceCoefficient: number
-  teacherShare: number
-  monthlySalary: number
+    date: string;
+    present: number;
+    absent: number;
+    total: number;
+  }[];
+  lessonsCount: number;
+  expectedLessons: number;
+  attendanceCoefficient: number;
+  teacherShare: number;
+  monthlySalary: number;
 }
 
 interface SalaryPayment {
-  id: string
-  amount: number
-  paymentDate: string
-  method: string
-  notes?: string
+  id: string;
+  amount: number;
+  paymentDate: string;
+  method: string;
+  notes?: string;
 }
 
 interface TeacherSalaryData {
   teacher: {
-    id: string
-    firstName: string
-    lastName: string
-    middleName?: string
-    phone: string
-    status: string
-  }
-  period: string
-  periodDisplay: string
-  groupDetails: GroupDetail[]
+    id: string;
+    firstName: string;
+    lastName: string;
+    middleName?: string;
+    phone: string;
+    status: string;
+  };
+  period: string;
+  periodDisplay: string;
+  groupDetails: GroupDetail[];
   summary: {
-    groupsCount: number
-    totalStudents: number
-    totalStudentPayments: number
-    totalTeacherShare: number
-    totalLessons: number
-    totalSalary: number
-    paidAmount: number
-    debt: number
-    isPaid: boolean
-  }
-  payments: SalaryPayment[]
+    groupsCount: number;
+    totalStudents: number;
+    totalStudentPayments: number;
+    totalTeacherShare: number;
+    totalLessons: number;
+    totalSalary: number;
+    paidAmount: number;
+    debt: number;
+    isPaid: boolean;
+  };
+  payments: SalaryPayment[];
 }
 
-export default function TeacherSalaryContent({ teacherId }: { teacherId: string }) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [form] = Form.useForm()
+export default function TeacherSalaryContent({
+  teacherId,
+}: {
+  teacherId: string;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [form] = Form.useForm();
 
-  const initialMonth = searchParams.get('month') || dayjs().format('YYYY-MM')
+  const initialMonth = searchParams.get("month") || dayjs().format("YYYY-MM");
 
   // State
-  const [salaryData, setSalaryData] = useState<TeacherSalaryData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth)
-  const [isPayModalOpen, setIsPayModalOpen] = useState(false)
-  const [paying, setPaying] = useState(false)
+  const [salaryData, setSalaryData] = useState<TeacherSalaryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   // Maosh ma'lumotlarini yuklash
   const fetchSalaryData = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       if (!token) {
-        router.push('/login')
-        return
+        router.push("/login");
+        return;
       }
 
-      const response = await fetch(`/api/salary/teacher/${teacherId}?month=${selectedMonth}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `/api/salary/teacher/${teacherId}?month=${selectedMonth}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      })
+      );
 
       if (!response.ok) {
         if (response.status === 404) {
-          message.error("O'qituvchi topilmadi")
-          router.push('/dashboard/salary')
-          return
+          message.error("O'qituvchi topilmadi");
+          router.push("/dashboard/salary");
+          return;
         }
-        throw new Error('Failed to fetch')
+        throw new Error("Failed to fetch");
       }
 
-      const data = await response.json()
-      setSalaryData(data)
+      const data = await response.json();
+      setSalaryData(data);
     } catch (error) {
-      message.error("Ma'lumotlarni yuklashda xatolik")
-      console.error('Error fetching salary data:', error)
+      message.error("Ma'lumotlarni yuklashda xatolik");
+      console.error("Error fetching salary data:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchSalaryData()
-  }, [teacherId, selectedMonth])
+    fetchSalaryData();
+  }, [teacherId, selectedMonth]);
 
   // Maosh to'lash modalni ochish
   const showPayModal = () => {
-    if (!salaryData) return
+    if (!salaryData) return;
     form.setFieldsValue({
       amount: salaryData.summary.debt,
       paymentDate: dayjs(),
-      method: 'CASH',
-      notes: '',
-    })
-    setIsPayModalOpen(true)
-  }
+      method: "CASH",
+      notes: "",
+    });
+    setIsPayModalOpen(true);
+  };
 
   // Maosh to'lash
   const handlePay = async (values: any) => {
-    if (!salaryData) return
+    if (!salaryData) return;
 
-    setPaying(true)
+    setPaying(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
 
-      const response = await fetch('/api/salary', {
-        method: 'POST',
+      const response = await fetch("/api/salary", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -197,85 +204,85 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
           method: values.method,
           notes: values.notes || null,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        message.error(data.error || 'Xatolik yuz berdi')
-        return
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
       }
 
-      message.success("Maosh to'lovi muvaffaqiyatli saqlandi")
-      setIsPayModalOpen(false)
-      form.resetFields()
-      fetchSalaryData()
+      message.success("Maosh to'lovi muvaffaqiyatli saqlandi");
+      setIsPayModalOpen(false);
+      form.resetFields();
+      fetchSalaryData();
     } catch (error) {
-      message.error('Xatolik yuz berdi')
+      message.error("Xatolik yuz berdi");
     } finally {
-      setPaying(false)
+      setPaying(false);
     }
-  }
+  };
 
   // To'lovni o'chirish
   const handleDeletePayment = async (paymentId: string) => {
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
 
       const response = await fetch(`/api/salary/${paymentId}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to delete')
+        throw new Error("Failed to delete");
       }
 
-      message.success("To'lov o'chirildi")
-      fetchSalaryData()
+      message.success("To'lov o'chirildi");
+      fetchSalaryData();
     } catch (error) {
-      message.error("To'lovni o'chirishda xatolik")
+      message.error("To'lovni o'chirishda xatolik");
     }
-  }
+  };
 
   // Chiqish
   const handleLogout = () => {
-    logout()
-    router.push('/login')
-  }
+    logout();
+    router.push("/login");
+  };
 
   // Narxni formatlash
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + " so'm"
-  }
+    return new Intl.NumberFormat("uz-UZ").format(price) + " so'm";
+  };
 
   // Oylar ro'yxati
   const getMonthOptions = () => {
-    const months = []
+    const months = [];
     for (let i = 0; i < 12; i++) {
-      const month = dayjs().subtract(i, 'month')
+      const month = dayjs().subtract(i, "month");
       months.push({
-        value: month.format('YYYY-MM'),
-        label: month.format('MMMM YYYY'),
-      })
+        value: month.format("YYYY-MM"),
+        label: month.format("MMMM YYYY"),
+      });
     }
-    return months
-  }
+    return months;
+  };
 
   // To'lov usuli
   const getMethodLabel = (method: string) => {
     const methods: Record<string, string> = {
-      CASH: 'Naqd',
-      CARD: 'Karta',
+      CASH: "Naqd",
+      CARD: "Karta",
       BANK_TRANSFER: "Bank o'tkazmasi",
-      PAYME: 'Payme',
-      CLICK: 'Click',
-      UZUM: 'Uzum',
-    }
-    return methods[method] || method
-  }
+      PAYME: "Payme",
+      CLICK: "Click",
+      UZUM: "Uzum",
+    };
+    return methods[method] || method;
+  };
 
   // Loading
   if (loading) {
@@ -283,7 +290,7 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Spin size="large" />
       </div>
-    )
+    );
   }
 
   // Ma'lumot topilmadi
@@ -292,7 +299,7 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Empty description="Ma'lumot topilmadi" />
       </div>
-    )
+    );
   }
 
   return (
@@ -304,18 +311,27 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
             <div className="flex items-center gap-8">
               <div
                 className="flex items-center gap-2 cursor-pointer"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push("/dashboard")}
               >
-                <CompasLogo width={40} height={40} />
+                <NURMAKONLogo width={40} height={40} />
               </div>
               <nav className="hidden md:flex gap-4">
-                <a href="/dashboard" className="text-gray-600 hover:text-gray-900">
+                <a
+                  href="/dashboard"
+                  className="text-gray-600 hover:text-gray-900"
+                >
                   Dashboard
                 </a>
-                <a href="/dashboard/teachers" className="text-gray-600 hover:text-gray-900">
+                <a
+                  href="/dashboard/teachers"
+                  className="text-gray-600 hover:text-gray-900"
+                >
                   O'qituvchilar
                 </a>
-                <a href="/dashboard/salary" className="text-indigo-600 font-medium">
+                <a
+                  href="/dashboard/salary"
+                  className="text-indigo-600 font-medium"
+                >
                   Maosh
                 </a>
               </nav>
@@ -332,7 +348,7 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
         {/* Back button */}
         <Button
           icon={<ArrowLeftOutlined />}
-          onClick={() => router.push('/dashboard/salary')}
+          onClick={() => router.push("/dashboard/salary")}
           className="mb-4"
         >
           Orqaga
@@ -414,7 +430,7 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
                 title="Jami to'lovlar"
                 value={salaryData.summary.totalStudentPayments}
                 formatter={(val) => formatPrice(Number(val))}
-                valueStyle={{ fontSize: '16px' }}
+                valueStyle={{ fontSize: "16px" }}
               />
             </Card>
           </Col>
@@ -424,19 +440,24 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
                 title="O'qituvchi ulushi"
                 value={salaryData.summary.totalTeacherShare}
                 formatter={(val) => formatPrice(Number(val))}
-                valueStyle={{ fontSize: '16px', color: '#1890ff' }}
+                valueStyle={{ fontSize: "16px", color: "#1890ff" }}
               />
             </Card>
           </Col>
           <Col xs={12} sm={8} md={4}>
-            <Card size="small" className={salaryData.summary.debt > 0 ? 'bg-red-50' : 'bg-green-50'}>
+            <Card
+              size="small"
+              className={
+                salaryData.summary.debt > 0 ? "bg-red-50" : "bg-green-50"
+              }
+            >
               <Statistic
                 title="Qarz"
                 value={salaryData.summary.debt}
                 formatter={(val) => formatPrice(Number(val))}
                 valueStyle={{
-                  fontSize: '16px',
-                  color: salaryData.summary.debt > 0 ? '#ff4d4f' : '#52c41a',
+                  fontSize: "16px",
+                  color: salaryData.summary.debt > 0 ? "#ff4d4f" : "#52c41a",
                 }}
               />
             </Card>
@@ -454,15 +475,27 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
             </div>
             <div className="mt-2">
               {salaryData.summary.isPaid ? (
-                <Tag color="green" icon={<CheckCircleOutlined />} className="text-lg px-4 py-1">
+                <Tag
+                  color="green"
+                  icon={<CheckCircleOutlined />}
+                  className="text-lg px-4 py-1"
+                >
                   To'liq to'langan
                 </Tag>
               ) : salaryData.summary.paidAmount > 0 ? (
-                <Tag color="orange" icon={<ExclamationCircleOutlined />} className="text-lg px-4 py-1">
+                <Tag
+                  color="orange"
+                  icon={<ExclamationCircleOutlined />}
+                  className="text-lg px-4 py-1"
+                >
                   Qisman to'langan: {formatPrice(salaryData.summary.paidAmount)}
                 </Tag>
               ) : (
-                <Tag color="red" icon={<ExclamationCircleOutlined />} className="text-lg px-4 py-1">
+                <Tag
+                  color="red"
+                  icon={<ExclamationCircleOutlined />}
+                  className="text-lg px-4 py-1"
+                >
                   To'lanmagan
                 </Tag>
               )}
@@ -471,7 +504,15 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
         </Card>
 
         {/* Guruhlar bo'yicha breakdown */}
-        <Card title={<span><BookOutlined className="mr-2" />Guruhlar bo'yicha hisob-kitob</span>} className="mb-6">
+        <Card
+          title={
+            <span>
+              <BookOutlined className="mr-2" />
+              Guruhlar bo'yicha hisob-kitob
+            </span>
+          }
+          className="mb-6"
+        >
           <Collapse accordion>
             {salaryData.groupDetails.map((group, index) => (
               <Panel
@@ -480,7 +521,9 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
                   <div className="flex justify-between items-center w-full pr-4">
                     <div>
                       <span className="font-medium">{group.group.name}</span>
-                      <span className="text-gray-500 ml-2">({group.group.course.name})</span>
+                      <span className="text-gray-500 ml-2">
+                        ({group.group.course.name})
+                      </span>
                     </div>
                     <div className="flex items-center gap-4">
                       <Tag color="blue">{group.studentCount} ta talaba</Tag>
@@ -512,17 +555,27 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
                         </div>
                         <Divider className="my-2" />
                         <div className="flex justify-between">
-                          <span className="text-gray-500">O'qituvchi foizi:</span>
+                          <span className="text-gray-500">
+                            O'qituvchi foizi:
+                          </span>
                           <span>{group.teacherPercentage}%</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">O'qituvchi ulushi:</span>
-                          <span className="font-medium">{formatPrice(group.teacherShare)}</span>
+                          <span className="text-gray-500">
+                            O'qituvchi ulushi:
+                          </span>
+                          <span className="font-medium">
+                            {formatPrice(group.teacherShare)}
+                          </span>
                         </div>
                         <Divider className="my-2" />
                         <div className="flex justify-between">
-                          <span className="text-gray-500">O'tilgan darslar:</span>
-                          <span>{group.lessonsCount} / {group.expectedLessons}</span>
+                          <span className="text-gray-500">
+                            O'tilgan darslar:
+                          </span>
+                          <span>
+                            {group.lessonsCount} / {group.expectedLessons}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Davomat koeff:</span>
@@ -531,7 +584,9 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
                         <Divider className="my-2" />
                         <div className="flex justify-between text-lg font-medium">
                           <span>Oylik maosh:</span>
-                          <span className="text-green-600">{formatPrice(group.monthlySalary)}</span>
+                          <span className="text-green-600">
+                            {formatPrice(group.monthlySalary)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -540,7 +595,9 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
                   {/* Talabalar */}
                   <Col xs={24} md={12}>
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="font-medium mb-3">Talabalar ({group.studentCount})</h4>
+                      <h4 className="font-medium mb-3">
+                        Talabalar ({group.studentCount})
+                      </h4>
                       <div className="max-h-48 overflow-y-auto">
                         <table className="w-full text-sm">
                           <thead>
@@ -579,7 +636,14 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
         </Card>
 
         {/* To'lovlar tarixi */}
-        <Card title={<span><WalletOutlined className="mr-2" />To'lovlar tarixi</span>}>
+        <Card
+          title={
+            <span>
+              <WalletOutlined className="mr-2" />
+              To'lovlar tarixi
+            </span>
+          }
+        >
           {salaryData.payments.length > 0 ? (
             <Table
               dataSource={salaryData.payments}
@@ -587,18 +651,18 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
               pagination={false}
               columns={[
                 {
-                  title: 'Sana',
-                  key: 'date',
+                  title: "Sana",
+                  key: "date",
                   render: (_, record) => (
                     <span>
                       <CalendarOutlined className="mr-2" />
-                      {dayjs(record.paymentDate).format('DD.MM.YYYY')}
+                      {dayjs(record.paymentDate).format("DD.MM.YYYY")}
                     </span>
                   ),
                 },
                 {
-                  title: 'Summa',
-                  key: 'amount',
+                  title: "Summa",
+                  key: "amount",
                   render: (_, record) => (
                     <span className="font-medium text-green-600">
                       {formatPrice(record.amount)}
@@ -606,20 +670,20 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
                   ),
                 },
                 {
-                  title: 'Usul',
-                  key: 'method',
+                  title: "Usul",
+                  key: "method",
                   render: (_, record) => (
                     <Tag>{getMethodLabel(record.method)}</Tag>
                   ),
                 },
                 {
-                  title: 'Izoh',
-                  key: 'notes',
-                  render: (_, record) => record.notes || '-',
+                  title: "Izoh",
+                  key: "notes",
+                  render: (_, record) => record.notes || "-",
                 },
                 {
-                  title: 'Amal',
-                  key: 'action',
+                  title: "Amal",
+                  key: "action",
                   render: (_, record) => (
                     <Popconfirm
                       title="To'lovni o'chirish"
@@ -652,8 +716,8 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
         }
         open={isPayModalOpen}
         onCancel={() => {
-          setIsPayModalOpen(false)
-          form.resetFields()
+          setIsPayModalOpen(false);
+          form.resetFields();
         }}
         footer={null}
         width={500}
@@ -679,27 +743,27 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
           </div>
         </div>
 
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handlePay}
-        >
+        <Form form={form} layout="vertical" onFinish={handlePay}>
           <Form.Item
             label="Summa"
             name="amount"
             rules={[
-              { required: true, message: 'Summani kiriting' },
-              { type: 'number', min: 1000, message: "Minimal summa: 1,000 so'm" },
+              { required: true, message: "Summani kiriting" },
+              {
+                type: "number",
+                min: 1000,
+                message: "Minimal summa: 1,000 so'm",
+              },
             ]}
           >
             <InputNumber
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               size="large"
               min={0}
               formatter={(value) =>
-                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, " ")
               }
-              parser={(value) => value!.replace(/\s/g, '') as any}
+              parser={(value) => value!.replace(/\s/g, "") as any}
               addonAfter="so'm"
             />
           </Form.Item>
@@ -709,10 +773,10 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
               <Form.Item
                 label="Sana"
                 name="paymentDate"
-                rules={[{ required: true, message: 'Sanani tanlang' }]}
+                rules={[{ required: true, message: "Sanani tanlang" }]}
               >
                 <DatePicker
-                  style={{ width: '100%' }}
+                  style={{ width: "100%" }}
                   size="large"
                   format="DD.MM.YYYY"
                 />
@@ -722,7 +786,7 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
               <Form.Item
                 label="To'lov usuli"
                 name="method"
-                rules={[{ required: true, message: 'Usulni tanlang' }]}
+                rules={[{ required: true, message: "Usulni tanlang" }]}
               >
                 <Select size="large">
                   <Option value="CASH">Naqd</Option>
@@ -753,8 +817,8 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
               </Button>
               <Button
                 onClick={() => {
-                  setIsPayModalOpen(false)
-                  form.resetFields()
+                  setIsPayModalOpen(false);
+                  form.resetFields();
                 }}
                 size="large"
               >
@@ -765,5 +829,5 @@ export default function TeacherSalaryContent({ teacherId }: { teacherId: string 
         </Form>
       </Modal>
     </div>
-  )
+  );
 }

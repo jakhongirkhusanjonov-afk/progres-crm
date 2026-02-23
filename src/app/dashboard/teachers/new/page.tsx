@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   Form,
@@ -21,8 +21,8 @@ import {
   Switch,
   Modal,
   Result,
-} from 'antd'
-import CompasLogo from '@/components/CompasLogo'
+} from "antd";
+import NURMAKONLogo from "@/components/NURMAKONLogo";
 import {
   ArrowLeftOutlined,
   UserOutlined,
@@ -33,80 +33,80 @@ import {
   KeyOutlined,
   CopyOutlined,
   CheckOutlined,
-} from '@ant-design/icons'
-import Link from 'next/link'
-import { generatePassword } from '@/lib/crypto-client'
+} from "@ant-design/icons";
+import Link from "next/link";
+import { generatePassword } from "@/lib/crypto-client";
 
-const { Title, Text } = Typography
-const { Option } = Select
-const { TextArea } = Input
+const { Title, Text } = Typography;
+const { Option } = Select;
+const { TextArea } = Input;
 
 interface Course {
-  id: string
-  name: string
-  price: number
+  id: string;
+  name: string;
+  price: number;
 }
 
 interface CourseSelection {
-  courseId: string
-  courseName: string
-  percentage: number
+  courseId: string;
+  courseName: string;
+  percentage: number;
 }
 
 interface Credentials {
-  username: string
-  password: string
+  username: string;
+  password: string;
 }
 
 export default function NewTeacherPage() {
-  const router = useRouter()
-  const [form] = Form.useForm()
-  const [loading, setLoading] = useState(false)
-  const [courses, setCourses] = useState<Course[]>([])
-  const [selectedCourses, setSelectedCourses] = useState<CourseSelection[]>([])
-  const [createAccount, setCreateAccount] = useState(true)
-  const [showPassword, setShowPassword] = useState(false)
-  const [successModalOpen, setSuccessModalOpen] = useState(false)
-  const [credentials, setCredentials] = useState<Credentials | null>(null)
-  const [copied, setCopied] = useState(false)
+  const router = useRouter();
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourses, setSelectedCourses] = useState<CourseSelection[]>([]);
+  const [createAccount, setCreateAccount] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [credentials, setCredentials] = useState<Credentials | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Kurslarni yuklash
   const fetchCourses = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('/api/courses?isActive=true', {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/courses?isActive=true", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        setCourses(data.courses || [])
+        const data = await response.json();
+        setCourses(data.courses || []);
       }
     } catch (error) {
-      console.error('Error fetching courses:', error)
+      console.error("Error fetching courses:", error);
     }
-  }
+  };
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem("token");
     if (!token) {
-      router.push('/login')
-      return
+      router.push("/login");
+      return;
     }
-    fetchCourses()
-  }, [])
+    fetchCourses();
+  }, []);
 
   // Kurs qo'shish
   const handleAddCourse = (courseId: string) => {
-    const course = courses.find((c) => c.id === courseId)
-    if (!course) return
+    const course = courses.find((c) => c.id === courseId);
+    if (!course) return;
 
     // Allaqachon qo'shilganmi tekshirish
     if (selectedCourses.find((sc) => sc.courseId === courseId)) {
-      message.warning('Bu fan allaqachon qo\'shilgan')
-      return
+      message.warning("Bu fan allaqachon qo'shilgan");
+      return;
     }
 
     setSelectedCourses([
@@ -116,49 +116,51 @@ export default function NewTeacherPage() {
         courseName: course.name,
         percentage: 50,
       },
-    ])
-  }
+    ]);
+  };
 
   // Foizni o'zgartirish
   const handlePercentageChange = (courseId: string, percentage: number) => {
     setSelectedCourses(
       selectedCourses.map((sc) =>
-        sc.courseId === courseId ? { ...sc, percentage } : sc
-      )
-    )
-  }
+        sc.courseId === courseId ? { ...sc, percentage } : sc,
+      ),
+    );
+  };
 
   // Kursni o'chirish
   const handleRemoveCourse = (courseId: string) => {
-    setSelectedCourses(selectedCourses.filter((sc) => sc.courseId !== courseId))
-  }
+    setSelectedCourses(
+      selectedCourses.filter((sc) => sc.courseId !== courseId),
+    );
+  };
 
   // Avtomatik parol yaratish
   const handleGeneratePassword = () => {
-    const newPassword = generatePassword(8)
-    form.setFieldsValue({ password: newPassword })
-  }
+    const newPassword = generatePassword(8);
+    form.setFieldsValue({ password: newPassword });
+  };
 
   // Copy qilish
   const handleCopy = () => {
-    if (!credentials) return
-    const text = `Login: ${credentials.username}\nParol: ${credentials.password}`
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    message.success('Nusxa olindi!')
-    setTimeout(() => setCopied(false), 2000)
-  }
+    if (!credentials) return;
+    const text = `Login: ${credentials.username}\nParol: ${credentials.password}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    message.success("Nusxa olindi!");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Saqlash
   const handleSubmit = async (values: any) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
 
-      const response = await fetch('/api/teachers', {
-        method: 'POST',
+      const response = await fetch("/api/teachers", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -170,41 +172,41 @@ export default function NewTeacherPage() {
           })),
           createAccount,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        message.error(data.error || 'Xatolik yuz berdi')
-        return
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
       }
 
       // Agar credentials qaytarilgan bo'lsa, modalda ko'rsatish
       if (data.credentials) {
-        setCredentials(data.credentials)
-        setSuccessModalOpen(true)
+        setCredentials(data.credentials);
+        setSuccessModalOpen(true);
       } else {
-        message.success('O\'qituvchi muvaffaqiyatli qo\'shildi')
-        router.push('/dashboard/teachers')
+        message.success("O'qituvchi muvaffaqiyatli qo'shildi");
+        router.push("/dashboard/teachers");
       }
     } catch (error) {
-      message.error('Xatolik yuz berdi')
+      message.error("Xatolik yuz berdi");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Modal yopish va redirect
   const handleModalClose = () => {
-    setSuccessModalOpen(false)
-    setCredentials(null)
-    router.push('/dashboard/teachers')
-  }
+    setSuccessModalOpen(false);
+    setCredentials(null);
+    router.push("/dashboard/teachers");
+  };
 
   // Qo'shilmagan kurslar
   const availableCourses = courses.filter(
-    (c) => !selectedCourses.find((sc) => sc.courseId === c.id)
-  )
+    (c) => !selectedCourses.find((sc) => sc.courseId === c.id),
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -215,15 +217,21 @@ export default function NewTeacherPage() {
             <div className="flex items-center gap-8">
               <div
                 className="flex items-center gap-2 cursor-pointer"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push("/dashboard")}
               >
-                <CompasLogo width={40} height={40} />
+                <NURMAKONLogo width={40} height={40} />
               </div>
               <nav className="hidden md:flex gap-4">
-                <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
+                <Link
+                  href="/dashboard"
+                  className="text-gray-600 hover:text-gray-900"
+                >
                   Dashboard
                 </Link>
-                <Link href="/dashboard/teachers" className="text-indigo-600 font-medium">
+                <Link
+                  href="/dashboard/teachers"
+                  className="text-indigo-600 font-medium"
+                >
                   O'qituvchilar
                 </Link>
               </nav>
@@ -238,7 +246,7 @@ export default function NewTeacherPage() {
           <div className="flex items-center gap-4 mb-6">
             <Button
               icon={<ArrowLeftOutlined />}
-              onClick={() => router.push('/dashboard/teachers')}
+              onClick={() => router.push("/dashboard/teachers")}
             >
               Orqaga
             </Button>
@@ -262,7 +270,7 @@ export default function NewTeacherPage() {
                 <Form.Item
                   label="Familiya"
                   name="lastName"
-                  rules={[{ required: true, message: 'Familiya kiriting' }]}
+                  rules={[{ required: true, message: "Familiya kiriting" }]}
                 >
                   <Input placeholder="Rahimov" />
                 </Form.Item>
@@ -271,7 +279,7 @@ export default function NewTeacherPage() {
                 <Form.Item
                   label="Ism"
                   name="firstName"
-                  rules={[{ required: true, message: 'Ism kiriting' }]}
+                  rules={[{ required: true, message: "Ism kiriting" }]}
                 >
                   <Input placeholder="Aziz" />
                 </Form.Item>
@@ -289,10 +297,10 @@ export default function NewTeacherPage() {
                   label="Telefon"
                   name="phone"
                   rules={[
-                    { required: true, message: 'Telefon kiriting' },
+                    { required: true, message: "Telefon kiriting" },
                     {
                       pattern: /^\+998\d{9}$/,
-                      message: '+998XXXXXXXXX formatida',
+                      message: "+998XXXXXXXXX formatida",
                     },
                   ]}
                 >
@@ -303,7 +311,7 @@ export default function NewTeacherPage() {
                 <Form.Item
                   label="Email"
                   name="email"
-                  rules={[{ type: 'email', message: 'Email noto\'g\'ri' }]}
+                  rules={[{ type: "email", message: "Email noto'g'ri" }]}
                 >
                   <Input placeholder="teacher@example.com" />
                 </Form.Item>
@@ -314,7 +322,7 @@ export default function NewTeacherPage() {
               <Col xs={24} sm={12}>
                 <Form.Item label="Tug'ilgan sana" name="dateOfBirth">
                   <DatePicker
-                    style={{ width: '100%' }}
+                    style={{ width: "100%" }}
                     format="DD.MM.YYYY"
                     placeholder="Tanlang"
                   />
@@ -338,7 +346,7 @@ export default function NewTeacherPage() {
               <Col xs={24} sm={12}>
                 <Form.Item label="Tajriba (yil)" name="experience">
                   <InputNumber
-                    style={{ width: '100%' }}
+                    style={{ width: "100%" }}
                     min={0}
                     max={50}
                     placeholder="5"
@@ -358,15 +366,15 @@ export default function NewTeacherPage() {
 
             <div className="mb-4">
               <Text type="secondary">
-                O'qituvchi o'qitadigan fanlarni tanlang va har bir fan uchun maosh
-                foizini belgilang (40-60%)
+                O'qituvchi o'qitadigan fanlarni tanlang va har bir fan uchun
+                maosh foizini belgilang (40-60%)
               </Text>
             </div>
 
             <Row gutter={16} className="mb-4">
               <Col xs={24} sm={16}>
                 <Select
-                  style={{ width: '100%' }}
+                  style={{ width: "100%" }}
                   placeholder="Fan tanlang"
                   onChange={handleAddCourse}
                   value={undefined}
@@ -399,9 +407,9 @@ export default function NewTeacherPage() {
                           handlePercentageChange(sc.courseId, value)
                         }
                         marks={{
-                          40: '40%',
-                          50: '50%',
-                          60: '60%',
+                          40: "40%",
+                          50: "50%",
+                          60: "60%",
                         }}
                       />
                     </div>
@@ -448,12 +456,15 @@ export default function NewTeacherPage() {
                       label="Username"
                       name="username"
                       rules={[
-                        { required: createAccount, message: 'Username kiriting' },
+                        {
+                          required: createAccount,
+                          message: "Username kiriting",
+                        },
                         {
                           pattern: /^[a-z0-9_\.]+$/,
-                          message: 'Faqat kichik harflar, raqamlar, _ va .',
+                          message: "Faqat kichik harflar, raqamlar, _ va .",
                         },
-                        { min: 3, message: 'Kamida 3 ta belgi' },
+                        { min: 3, message: "Kamida 3 ta belgi" },
                       ]}
                     >
                       <Input
@@ -467,21 +478,27 @@ export default function NewTeacherPage() {
                       label="Parol"
                       name="password"
                       rules={[
-                        { required: createAccount, message: 'Parol kiriting' },
-                        { min: 6, message: 'Kamida 6 ta belgi' },
+                        { required: createAccount, message: "Parol kiriting" },
+                        { min: 6, message: "Kamida 6 ta belgi" },
                       ]}
                     >
                       <Input.Group compact>
                         <Input
-                          style={{ width: 'calc(100% - 80px)' }}
-                          type={showPassword ? 'text' : 'password'}
+                          style={{ width: "calc(100% - 80px)" }}
+                          type={showPassword ? "text" : "password"}
                           placeholder="Parol"
                           prefix={<KeyOutlined className="text-gray-400" />}
                           suffix={
                             <Button
                               type="text"
                               size="small"
-                              icon={showPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                              icon={
+                                showPassword ? (
+                                  <EyeInvisibleOutlined />
+                                ) : (
+                                  <EyeOutlined />
+                                )
+                              }
                               onClick={() => setShowPassword(!showPassword)}
                             />
                           }
@@ -489,7 +506,7 @@ export default function NewTeacherPage() {
                         <Button
                           type="primary"
                           onClick={handleGeneratePassword}
-                          style={{ width: '80px' }}
+                          style={{ width: "80px" }}
                         >
                           Yaratish
                         </Button>
@@ -501,7 +518,8 @@ export default function NewTeacherPage() {
 
               {!createAccount && (
                 <Text type="secondary" className="text-sm">
-                  O'qituvchi tizimga kira olmaydi. Keyinroq login yaratish mumkin.
+                  O'qituvchi tizimga kira olmaydi. Keyinroq login yaratish
+                  mumkin.
                 </Text>
               )}
             </div>
@@ -520,7 +538,7 @@ export default function NewTeacherPage() {
               </Button>
               <Button
                 size="large"
-                onClick={() => router.push('/dashboard/teachers')}
+                onClick={() => router.push("/dashboard/teachers")}
               >
                 Bekor qilish
               </Button>
@@ -548,11 +566,15 @@ export default function NewTeacherPage() {
           <div className="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-gray-300 mb-4">
             <div className="flex justify-between items-center mb-2">
               <Text type="secondary">Login:</Text>
-              <Text strong copyable>{credentials.username}</Text>
+              <Text strong copyable>
+                {credentials.username}
+              </Text>
             </div>
             <div className="flex justify-between items-center">
               <Text type="secondary">Parol:</Text>
-              <Text strong copyable>{credentials.password}</Text>
+              <Text strong copyable>
+                {credentials.password}
+              </Text>
             </div>
           </div>
         )}
@@ -563,11 +585,9 @@ export default function NewTeacherPage() {
             icon={copied ? <CheckOutlined /> : <CopyOutlined />}
             onClick={handleCopy}
           >
-            {copied ? 'Nusxa olindi' : 'Nusxa olish'}
+            {copied ? "Nusxa olindi" : "Nusxa olish"}
           </Button>
-          <Button onClick={handleModalClose}>
-            OK
-          </Button>
+          <Button onClick={handleModalClose}>OK</Button>
         </div>
 
         <div className="text-center mt-4">
@@ -577,5 +597,5 @@ export default function NewTeacherPage() {
         </div>
       </Modal>
     </div>
-  )
+  );
 }

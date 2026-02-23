@@ -33,10 +33,10 @@
   <line x1="12" y1="50" x2="18" y2="50" stroke="#d1d5db" stroke-width="2" />
   <line x1="82" y1="50" x2="88" y2="50" stroke="#d1d5db" stroke-width="2" />
 
-  <!-- Compass needle - North (Blue) -->
+  <!-- NURMAKONs needle - North (Blue) -->
   <polygon points="50,22 44,50 50,45 56,50" fill="url(#needleGradient)" />
 
-  <!-- Compass needle - South (Red) -->
+  <!-- NURMAKONs needle - South (Red) -->
   <polygon points="50,78 44,50 50,55 56,50" fill="url(#needleGradient2)" />
 
   <!-- Center circle -->

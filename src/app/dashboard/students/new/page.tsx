@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { getToken, getUser } from '@/lib/auth-client'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getToken, getUser } from "@/lib/auth-client";
 import {
   Form,
   Input,
@@ -20,8 +20,8 @@ import {
   Result,
   Typography,
   Space,
-} from 'antd'
-import CompasLogo from '@/components/CompasLogo'
+} from "antd";
+import NURMAKONLogo from "@/components/NURMAKONLogo";
 import {
   ArrowLeftOutlined,
   UserAddOutlined,
@@ -32,86 +32,86 @@ import {
   EyeInvisibleOutlined,
   CopyOutlined,
   CheckOutlined,
-} from '@ant-design/icons'
-import Link from 'next/link'
-import { generatePassword } from '@/lib/crypto-client'
+} from "@ant-design/icons";
+import Link from "next/link";
+import { generatePassword } from "@/lib/crypto-client";
 
-const { Option } = Select
-const { Text } = Typography
+const { Option } = Select;
+const { Text } = Typography;
 
 interface Credentials {
-  username: string
-  password: string
+  username: string;
+  password: string;
 }
 
 export default function NewStudentPage() {
-  const router = useRouter()
-  const [form] = Form.useForm()
-  const [loading, setLoading] = useState(false)
-  const [createAccount, setCreateAccount] = useState(true)
-  const [showPassword, setShowPassword] = useState(false)
-  const [successModalOpen, setSuccessModalOpen] = useState(false)
-  const [credentials, setCredentials] = useState<Credentials | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [authChecking, setAuthChecking] = useState(true)
-  const [canAddStudent, setCanAddStudent] = useState(false)
+  const router = useRouter();
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+  const [createAccount, setCreateAccount] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [credentials, setCredentials] = useState<Credentials | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [canAddStudent, setCanAddStudent] = useState(false);
 
   // Auth tekshiruvi
   useEffect(() => {
-    const token = getToken()
-    const user = getUser()
+    const token = getToken();
+    const user = getUser();
 
     if (!token) {
-      router.push('/login')
-      return
+      router.push("/login");
+      return;
     }
 
     // ADMIN va SUPER_ADMIN talaba qo'sha oladi
-    const allowedRoles = ['SUPER_ADMIN', 'ADMIN']
+    const allowedRoles = ["SUPER_ADMIN", "ADMIN"];
     if (user && allowedRoles.includes(user.role)) {
-      setCanAddStudent(true)
+      setCanAddStudent(true);
     }
 
-    setAuthChecking(false)
-  }, [router])
+    setAuthChecking(false);
+  }, [router]);
 
   // Avtomatik parol yaratish
   const handleGeneratePassword = () => {
-    const newPassword = generatePassword(8)
-    form.setFieldsValue({ password: newPassword })
-  }
+    const newPassword = generatePassword(8);
+    form.setFieldsValue({ password: newPassword });
+  };
 
   // Copy qilish
   const handleCopy = () => {
-    if (!credentials) return
-    const text = `Login: ${credentials.username}\nParol: ${credentials.password}`
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    message.success('Nusxa olindi!')
-    setTimeout(() => setCopied(false), 2000)
-  }
+    if (!credentials) return;
+    const text = `Login: ${credentials.username}\nParol: ${credentials.password}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    message.success("Nusxa olindi!");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Modal yopish va redirect
   const handleModalClose = () => {
-    setSuccessModalOpen(false)
-    setCredentials(null)
-    router.push('/dashboard/students')
-  }
+    setSuccessModalOpen(false);
+    setCredentials(null);
+    router.push("/dashboard/students");
+  };
 
   const handleSubmit = async (values: any) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const token = getToken()
+      const token = getToken();
       if (!token) {
-        message.error('Sessiya muddati tugagan. Qaytadan tizimga kiring.')
-        router.push('/login')
-        return
+        message.error("Sessiya muddati tugagan. Qaytadan tizimga kiring.");
+        router.push("/login");
+        return;
       }
 
-      const response = await fetch('/api/students', {
-        method: 'POST',
+      const response = await fetch("/api/students", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -121,41 +121,41 @@ export default function NewStudentPage() {
             : null,
           createAccount,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
         // 401 xatosi - token muddati tugagan
         if (response.status === 401) {
-          message.error('Sessiya muddati tugagan. Qaytadan tizimga kiring.')
-          router.push('/login')
-          return
+          message.error("Sessiya muddati tugagan. Qaytadan tizimga kiring.");
+          router.push("/login");
+          return;
         }
         // 403 xatosi - huquq yo'q
         if (response.status === 403) {
-          message.error('Sizda bu amalni bajarish huquqi yo\'q')
-          return
+          message.error("Sizda bu amalni bajarish huquqi yo'q");
+          return;
         }
-        message.error(data.error || 'Xatolik yuz berdi')
-        return
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
       }
 
       // Agar credentials qaytarilgan bo'lsa, modalda ko'rsatish
       if (data.credentials) {
-        setCredentials(data.credentials)
-        setSuccessModalOpen(true)
+        setCredentials(data.credentials);
+        setSuccessModalOpen(true);
       } else {
-        message.success('Talaba muvaffaqiyatli qo\'shildi')
-        router.push('/dashboard/students')
+        message.success("Talaba muvaffaqiyatli qo'shildi");
+        router.push("/dashboard/students");
       }
     } catch (error) {
-      message.error('Xatolik yuz berdi')
-      console.error('Error creating student:', error)
+      message.error("Xatolik yuz berdi");
+      console.error("Error creating student:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Loading holati
   if (authChecking) {
@@ -166,7 +166,7 @@ export default function NewStudentPage() {
           <p className="mt-4 text-gray-600">Yuklanmoqda...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Huquq yo'q
@@ -177,15 +177,18 @@ export default function NewStudentPage() {
           <div className="text-red-500 text-6xl mb-4">⛔</div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Ruxsat yo'q</h2>
           <p className="text-gray-600 mb-4">
-            Sizda talaba qo'shish huquqi yo'q.
-            Faqat Admin va Super Admin bu amalni bajara oladi.
+            Sizda talaba qo'shish huquqi yo'q. Faqat Admin va Super Admin bu
+            amalni bajara oladi.
           </p>
-          <Button type="primary" onClick={() => router.push('/dashboard/students')}>
+          <Button
+            type="primary"
+            onClick={() => router.push("/dashboard/students")}
+          >
             Orqaga qaytish
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -197,12 +200,15 @@ export default function NewStudentPage() {
             <div className="flex items-center gap-8">
               <div
                 className="flex items-center gap-2 cursor-pointer"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push("/dashboard")}
               >
-                <CompasLogo width={40} height={40} />
+                <NURMAKONLogo width={40} height={40} />
               </div>
               <nav className="flex gap-4">
-                <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
+                <Link
+                  href="/dashboard"
+                  className="text-gray-600 hover:text-gray-900"
+                >
                   Dashboard
                 </Link>
                 <Link
@@ -224,7 +230,7 @@ export default function NewStudentPage() {
           items={[
             { title: <Link href="/dashboard">Dashboard</Link> },
             { title: <Link href="/dashboard/students">Talabalar</Link> },
-            { title: 'Yangi talaba' },
+            { title: "Yangi talaba" },
           ]}
         />
 
@@ -232,7 +238,7 @@ export default function NewStudentPage() {
           <div className="flex items-center gap-4 mb-6">
             <Button
               icon={<ArrowLeftOutlined />}
-              onClick={() => router.push('/dashboard/students')}
+              onClick={() => router.push("/dashboard/students")}
             >
               Orqaga
             </Button>
@@ -261,7 +267,7 @@ export default function NewStudentPage() {
                 <Form.Item
                   label="Familiya"
                   name="lastName"
-                  rules={[{ required: true, message: 'Familiya kiriting' }]}
+                  rules={[{ required: true, message: "Familiya kiriting" }]}
                 >
                   <Input placeholder="Rahimov" />
                 </Form.Item>
@@ -270,7 +276,7 @@ export default function NewStudentPage() {
                 <Form.Item
                   label="Ism"
                   name="firstName"
-                  rules={[{ required: true, message: 'Ism kiriting' }]}
+                  rules={[{ required: true, message: "Ism kiriting" }]}
                 >
                   <Input placeholder="Aziz" />
                 </Form.Item>
@@ -282,7 +288,7 @@ export default function NewStudentPage() {
                 <Form.Item
                   label="Jinsi"
                   name="gender"
-                  rules={[{ required: true, message: 'Jinsini tanlang' }]}
+                  rules={[{ required: true, message: "Jinsini tanlang" }]}
                 >
                   <Select placeholder="Tanlang">
                     <Option value="MALE">Erkak</Option>
@@ -293,7 +299,7 @@ export default function NewStudentPage() {
               <Col xs={24} md={12}>
                 <Form.Item label="Tug'ilgan sana" name="dateOfBirth">
                   <DatePicker
-                    style={{ width: '100%' }}
+                    style={{ width: "100%" }}
                     format="DD.MM.YYYY"
                     placeholder="Tanlang"
                   />
@@ -309,10 +315,10 @@ export default function NewStudentPage() {
                   label="Telefon raqam"
                   name="phone"
                   rules={[
-                    { required: true, message: 'Telefon raqam kiriting' },
+                    { required: true, message: "Telefon raqam kiriting" },
                     {
                       pattern: /^\+998\d{9}$/,
-                      message: '+998901234567 formatida kiriting',
+                      message: "+998901234567 formatida kiriting",
                     },
                   ]}
                 >
@@ -326,7 +332,7 @@ export default function NewStudentPage() {
                   rules={[
                     {
                       pattern: /^\+998\d{9}$/,
-                      message: '+998901234567 formatida kiriting',
+                      message: "+998901234567 formatida kiriting",
                     },
                   ]}
                 >
@@ -360,12 +366,15 @@ export default function NewStudentPage() {
                       label="Username"
                       name="username"
                       rules={[
-                        { required: createAccount, message: 'Username kiriting' },
+                        {
+                          required: createAccount,
+                          message: "Username kiriting",
+                        },
                         {
                           pattern: /^[a-z0-9_\.]+$/,
-                          message: 'Faqat kichik harflar, raqamlar, _ va .',
+                          message: "Faqat kichik harflar, raqamlar, _ va .",
                         },
-                        { min: 3, message: 'Kamida 3 ta belgi' },
+                        { min: 3, message: "Kamida 3 ta belgi" },
                       ]}
                     >
                       <Input
@@ -379,21 +388,27 @@ export default function NewStudentPage() {
                       label="Parol"
                       name="password"
                       rules={[
-                        { required: createAccount, message: 'Parol kiriting' },
-                        { min: 6, message: 'Kamida 6 ta belgi' },
+                        { required: createAccount, message: "Parol kiriting" },
+                        { min: 6, message: "Kamida 6 ta belgi" },
                       ]}
                     >
                       <Input.Group compact>
                         <Input
-                          style={{ width: 'calc(100% - 80px)' }}
-                          type={showPassword ? 'text' : 'password'}
+                          style={{ width: "calc(100% - 80px)" }}
+                          type={showPassword ? "text" : "password"}
                           placeholder="Parol"
                           prefix={<KeyOutlined className="text-gray-400" />}
                           suffix={
                             <Button
                               type="text"
                               size="small"
-                              icon={showPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                              icon={
+                                showPassword ? (
+                                  <EyeInvisibleOutlined />
+                                ) : (
+                                  <EyeOutlined />
+                                )
+                              }
                               onClick={() => setShowPassword(!showPassword)}
                             />
                           }
@@ -401,7 +416,7 @@ export default function NewStudentPage() {
                         <Button
                           type="primary"
                           onClick={handleGeneratePassword}
-                          style={{ width: '80px' }}
+                          style={{ width: "80px" }}
                         >
                           Yaratish
                         </Button>
@@ -432,7 +447,7 @@ export default function NewStudentPage() {
                   Saqlash
                 </Button>
                 <Button
-                  onClick={() => router.push('/dashboard/students')}
+                  onClick={() => router.push("/dashboard/students")}
                   size="large"
                 >
                   Bekor qilish
@@ -462,11 +477,15 @@ export default function NewStudentPage() {
           <div className="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-gray-300 mb-4">
             <div className="flex justify-between items-center mb-2">
               <Text type="secondary">Login:</Text>
-              <Text strong copyable>{credentials.username}</Text>
+              <Text strong copyable>
+                {credentials.username}
+              </Text>
             </div>
             <div className="flex justify-between items-center">
               <Text type="secondary">Parol:</Text>
-              <Text strong copyable>{credentials.password}</Text>
+              <Text strong copyable>
+                {credentials.password}
+              </Text>
             </div>
           </div>
         )}
@@ -477,11 +496,9 @@ export default function NewStudentPage() {
             icon={copied ? <CheckOutlined /> : <CopyOutlined />}
             onClick={handleCopy}
           >
-            {copied ? 'Nusxa olindi' : 'Nusxa olish'}
+            {copied ? "Nusxa olindi" : "Nusxa olish"}
           </Button>
-          <Button onClick={handleModalClose}>
-            OK
-          </Button>
+          <Button onClick={handleModalClose}>OK</Button>
         </div>
 
         <div className="text-center mt-4">
@@ -491,5 +508,5 @@ export default function NewStudentPage() {
         </div>
       </Modal>
     </div>
-  )
+  );
 }

@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useMemo } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useState, useEffect, useMemo } from "react";
+import { useRouter, useParams } from "next/navigation";
 import {
   Card,
   Descriptions,
@@ -25,7 +25,7 @@ import {
   Popconfirm,
   Space,
   Result,
-} from 'antd'
+} from "antd";
 import {
   ArrowLeftOutlined,
   EditOutlined,
@@ -51,258 +51,263 @@ import {
   SettingOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
-} from '@ant-design/icons'
-import { Progress } from 'antd'
-import Link from 'next/link'
-import dayjs from 'dayjs'
-import DashboardLayout from '@/components/DashboardLayout'
+} from "@ant-design/icons";
+import { NURMAKONs } from "antd";
+import Link from "next/link";
+import dayjs from "dayjs";
+import DashboardLayout from "@/components/DashboardLayout";
 
-const { Option } = Select
+const { Option } = Select;
 
 interface Student {
-  id: string
-  firstName: string
-  lastName: string
-  phone: string
-  parentPhone?: string
-  dateOfBirth?: string
-  gender?: 'MALE' | 'FEMALE'
-  status: 'ACTIVE' | 'GRADUATED' | 'SUSPENDED' | 'DROPPED'
-  enrollmentDate: string
-  createdAt: string
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  parentPhone?: string;
+  dateOfBirth?: string;
+  gender?: "MALE" | "FEMALE";
+  status: "ACTIVE" | "GRADUATED" | "SUSPENDED" | "DROPPED";
+  enrollmentDate: string;
+  createdAt: string;
   createdBy: {
-    fullName: string
-    email: string
-  }
-  groupStudents: any[]
-  payments: any[]
-  attendances: any[]
+    fullName: string;
+    email: string;
+  };
+  groupStudents: any[];
+  payments: any[];
+  attendances: any[];
   _count: {
-    payments: number
-    attendances: number
-    testResults: number
-  }
+    payments: number;
+    attendances: number;
+    testResults: number;
+  };
 }
 
 interface Group {
-  id: string
-  name: string
+  id: string;
+  name: string;
   course: {
-    name: string
-  }
+    name: string;
+  };
   teacher: {
-    firstName: string
-    lastName: string
-  }
-  status: string
+    firstName: string;
+    lastName: string;
+  };
+  status: string;
 }
 
 interface AttendanceData {
   student: {
-    id: string
-    firstName: string
-    lastName: string
+    id: string;
+    firstName: string;
+    lastName: string;
     groups: {
-      id: string
-      name: string
-      course: { name: string }
-    }[]
-  }
+      id: string;
+      name: string;
+      course: { name: string };
+    }[];
+  };
   attendances: {
-    id: string
-    date: string
-    status: string
-    notes: string | null
+    id: string;
+    date: string;
+    status: string;
+    notes: string | null;
     group: {
-      id: string
-      name: string
-      course: { name: string }
-    }
-  }[]
+      id: string;
+      name: string;
+      course: { name: string };
+    };
+  }[];
   stats: {
     allTime: {
-      total: number
-      present: number
-      late: number
-      absent: number
-      excused: number
-      attendanceRate: number
-    }
+      total: number;
+      present: number;
+      late: number;
+      absent: number;
+      excused: number;
+      attendanceRate: number;
+    };
     filtered: {
-      total: number
-      present: number
-      late: number
-      absent: number
-      excused: number
-      attendanceRate: number
-    } | null
+      total: number;
+      present: number;
+      late: number;
+      absent: number;
+      excused: number;
+      attendanceRate: number;
+    } | null;
     byGroup: {
-      group: { id: string; name: string; course: { name: string } }
+      group: { id: string; name: string; course: { name: string } };
       stats: {
-        total: number
-        present: number
-        late: number
-        absent: number
-        attendanceRate: number
-      }
-    }[]
-  }
+        total: number;
+        present: number;
+        late: number;
+        absent: number;
+        attendanceRate: number;
+      };
+    }[];
+  };
 }
 
 export default function StudentProfilePage() {
-  const router = useRouter()
-  const params = useParams()
-  const studentId = params.id as string
+  const router = useRouter();
+  const params = useParams();
+  const studentId = params.id as string;
 
-  const [student, setStudent] = useState<Student | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
-  const [editLoading, setEditLoading] = useState(false)
-  const [groupLoading, setGroupLoading] = useState(false)
-  const [availableGroups, setAvailableGroups] = useState<Group[]>([])
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('')
-  const [form] = Form.useForm()
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false)
-  const [archiveLoading, setArchiveLoading] = useState(false)
-  const [reactivateLoading, setReactivateLoading] = useState(false)
+  const [student, setStudent] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [groupLoading, setGroupLoading] = useState(false);
+  const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [form] = Form.useForm();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [reactivateLoading, setReactivateLoading] = useState(false);
 
   // Davomat state
-  const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null)
-  const [attendanceLoading, setAttendanceLoading] = useState(false)
-  const [selectedMonth, setSelectedMonth] = useState<string>('')
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('')
+  const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(
+    null,
+  );
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>("");
 
   // Parol o'zgartirish state
-  const [passwordForm] = Form.useForm()
-  const [passwordLoading, setPasswordLoading] = useState(false)
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [passwordForm] = Form.useForm();
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Permission checks
-  const isStudent = currentUser?.role === 'STUDENT'
-  const isOwnProfile = isStudent && currentUser?.studentId === studentId
-  const canEdit = !isStudent || (currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN')
-  const isReadOnly = isStudent
-  const hasForbiddenAccess = isStudent && currentUser?.studentId !== studentId
+  const isStudent = currentUser?.role === "STUDENT";
+  const isOwnProfile = isStudent && currentUser?.studentId === studentId;
+  const canEdit =
+    !isStudent ||
+    currentUser?.role === "SUPER_ADMIN" ||
+    currentUser?.role === "ADMIN";
+  const isReadOnly = isStudent;
+  const hasForbiddenAccess = isStudent && currentUser?.studentId !== studentId;
 
   // Get current user on mount
   useEffect(() => {
-    const userData = localStorage.getItem('user')
+    const userData = localStorage.getItem("user");
     if (userData) {
-      setCurrentUser(JSON.parse(userData))
+      setCurrentUser(JSON.parse(userData));
     }
-  }, [])
+  }, []);
 
   // Talaba ma'lumotlarini yuklash
   const fetchStudent = async () => {
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       if (!token) {
-        router.push('/login')
-        return
+        router.push("/login");
+        return;
       }
 
       const response = await fetch(`/api/students/${studentId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
       if (!response.ok) {
         if (response.status === 404) {
-          message.error('Talaba topilmadi')
-          router.push('/dashboard/students')
-          return
+          message.error("Talaba topilmadi");
+          router.push("/dashboard/students");
+          return;
         }
         if (response.status === 403) {
-          setLoading(false)
-          return
+          setLoading(false);
+          return;
         }
-        throw new Error('Failed to fetch')
+        throw new Error("Failed to fetch");
       }
 
-      const data = await response.json()
-      setStudent(data.student)
+      const data = await response.json();
+      setStudent(data.student);
     } catch (error) {
-      message.error('Ma\'lumotlarni yuklashda xatolik')
-      console.error('Error fetching student:', error)
+      message.error("Ma'lumotlarni yuklashda xatolik");
+      console.error("Error fetching student:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Mavjud guruhlarni yuklash
   const fetchGroups = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('/api/groups?status=ACTIVE', {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/groups?status=ACTIVE", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        setAvailableGroups(data.groups || [])
+        const data = await response.json();
+        setAvailableGroups(data.groups || []);
       }
     } catch (error) {
-      console.error('Error fetching groups:', error)
+      console.error("Error fetching groups:", error);
     }
-  }
+  };
 
   // Davomat ma'lumotlarini yuklash
   const fetchAttendance = async () => {
-    setAttendanceLoading(true)
+    setAttendanceLoading(true);
     try {
-      const token = localStorage.getItem('token')
-      let url = `/api/attendance/student/${studentId}?limit=100`
-      if (selectedMonth) url += `&month=${selectedMonth}`
-      if (selectedGroupFilter) url += `&groupId=${selectedGroupFilter}`
+      const token = localStorage.getItem("token");
+      let url = `/api/attendance/student/${studentId}?limit=100`;
+      if (selectedMonth) url += `&month=${selectedMonth}`;
+      if (selectedGroupFilter) url += `&groupId=${selectedGroupFilter}`;
 
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        setAttendanceData(data)
+        const data = await response.json();
+        setAttendanceData(data);
       }
     } catch (error) {
-      console.error('Error fetching attendance:', error)
+      console.error("Error fetching attendance:", error);
     } finally {
-      setAttendanceLoading(false)
+      setAttendanceLoading(false);
     }
-  }
+  };
 
   // Oylar ro'yxati
   const getMonthOptions = () => {
-    const months = []
+    const months = [];
     for (let i = 0; i < 12; i++) {
-      const month = dayjs().subtract(i, 'month')
+      const month = dayjs().subtract(i, "month");
       months.push({
-        value: month.format('YYYY-MM'),
-        label: month.format('MMMM YYYY'),
-      })
+        value: month.format("YYYY-MM"),
+        label: month.format("MMMM YYYY"),
+      });
     }
-    return months
-  }
+    return months;
+  };
 
   useEffect(() => {
     if (studentId) {
-      fetchStudent()
+      fetchStudent();
     }
-  }, [studentId])
+  }, [studentId]);
 
   useEffect(() => {
     if (studentId) {
-      fetchAttendance()
+      fetchAttendance();
     }
-  }, [studentId, selectedMonth, selectedGroupFilter])
+  }, [studentId, selectedMonth, selectedGroupFilter]);
 
   // Tahrirlash modali
   const showEditModal = () => {
@@ -315,26 +320,26 @@ export default function StudentProfilePage() {
         gender: student.gender,
         status: student.status,
         dateOfBirth: student.dateOfBirth ? dayjs(student.dateOfBirth) : null,
-      })
-      setIsEditModalOpen(true)
+      });
+      setIsEditModalOpen(true);
     }
-  }
+  };
 
   // Guruh qo'shish modali
   const showGroupModal = async () => {
-    await fetchGroups()
-    setSelectedGroupId('')
-    setIsGroupModalOpen(true)
-  }
+    await fetchGroups();
+    setSelectedGroupId("");
+    setIsGroupModalOpen(true);
+  };
 
   const handleEditSubmit = async (values: any) => {
-    setEditLoading(true)
+    setEditLoading(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       const response = await fetch(`/api/students/${studentId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -343,161 +348,166 @@ export default function StudentProfilePage() {
             ? values.dateOfBirth.toISOString()
             : null,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        message.error(data.error || 'Xatolik yuz berdi')
-        return
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
       }
 
-      message.success('Talaba muvaffaqiyatli yangilandi')
-      setIsEditModalOpen(false)
-      fetchStudent()
+      message.success("Talaba muvaffaqiyatli yangilandi");
+      setIsEditModalOpen(false);
+      fetchStudent();
     } catch (error) {
-      message.error('Xatolik yuz berdi')
+      message.error("Xatolik yuz berdi");
     } finally {
-      setEditLoading(false)
+      setEditLoading(false);
     }
-  }
+  };
 
   // Guruhga qo'shish
   const handleAddToGroup = async () => {
     if (!selectedGroupId) {
-      message.warning('Guruh tanlang')
-      return
+      message.warning("Guruh tanlang");
+      return;
     }
 
-    setGroupLoading(true)
+    setGroupLoading(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       const response = await fetch(`/api/students/${studentId}/groups`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ groupId: selectedGroupId }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        message.error(data.error || 'Xatolik yuz berdi')
-        return
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
       }
 
-      message.success('Talaba guruhga qo\'shildi')
-      setIsGroupModalOpen(false)
-      fetchStudent()
+      message.success("Talaba guruhga qo'shildi");
+      setIsGroupModalOpen(false);
+      fetchStudent();
     } catch (error) {
-      message.error('Xatolik yuz berdi')
+      message.error("Xatolik yuz berdi");
     } finally {
-      setGroupLoading(false)
+      setGroupLoading(false);
     }
-  }
+  };
 
   // Guruhdan chiqarish
   const handleRemoveFromGroup = async (groupStudentId: string) => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`/api/students/${studentId}/groups/${groupStudentId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `/api/students/${studentId}/groups/${groupStudentId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      })
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to remove')
+        throw new Error("Failed to remove");
       }
 
-      message.success('Talaba guruhdan chiqarildi')
-      fetchStudent()
+      message.success("Talaba guruhdan chiqarildi");
+      fetchStudent();
     } catch (error) {
-      message.error('Xatolik yuz berdi')
+      message.error("Xatolik yuz berdi");
     }
-  }
+  };
 
   // Arxivga olish
   const handleArchive = async () => {
-    setArchiveLoading(true)
+    setArchiveLoading(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       const response = await fetch(`/api/students/${studentId}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        message.error(data.error || 'Xatolik yuz berdi')
-        return
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
       }
 
-      message.success('Talaba arxivga olindi. Login huquqi bekor qilindi.')
-      setArchiveModalOpen(false)
-      router.push('/dashboard/students')
+      message.success("Talaba arxivga olindi. Login huquqi bekor qilindi.");
+      setArchiveModalOpen(false);
+      router.push("/dashboard/students");
     } catch (error) {
-      message.error('Xatolik yuz berdi')
+      message.error("Xatolik yuz berdi");
     } finally {
-      setArchiveLoading(false)
+      setArchiveLoading(false);
     }
-  }
+  };
 
   // Qayta faollashtirish
   const handleReactivate = async () => {
-    setReactivateLoading(true)
+    setReactivateLoading(true);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       const response = await fetch(`/api/students/${studentId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           firstName: student?.firstName,
           lastName: student?.lastName,
           phone: student?.phone,
-          status: 'ACTIVE',
+          status: "ACTIVE",
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        message.error(data.error || 'Xatolik yuz berdi')
-        return
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
       }
 
-      message.success('Talaba qayta faollashtirildi. Endi eski login/parol bilan kirishi mumkin.')
-      fetchStudent()
+      message.success(
+        "Talaba qayta faollashtirildi. Endi eski login/parol bilan kirishi mumkin.",
+      );
+      fetchStudent();
     } catch (error) {
-      message.error('Xatolik yuz berdi')
+      message.error("Xatolik yuz berdi");
     } finally {
-      setReactivateLoading(false)
+      setReactivateLoading(false);
     }
-  }
+  };
 
   // Parolni o'zgartirish
   const handleChangePassword = async (values: any) => {
     if (values.newPassword !== values.confirmPassword) {
-      message.error('Parollar mos kelmaydi')
-      return
+      message.error("Parollar mos kelmaydi");
+      return;
     }
 
-    setPasswordLoading(true)
+    setPasswordLoading(true);
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('/api/users/change-password', {
-        method: 'PUT',
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/users/change-password", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -505,26 +515,26 @@ export default function StudentProfilePage() {
           newPassword: values.newPassword,
           confirmPassword: values.confirmPassword,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        message.error(data.error || 'Parolni o\'zgartirishda xatolik')
-        return
+        message.error(data.error || "Parolni o'zgartirishda xatolik");
+        return;
       }
 
-      message.success('Parol muvaffaqiyatli o\'zgartirildi!')
-      passwordForm.resetFields()
-      setShowCurrentPassword(false)
-      setShowNewPassword(false)
-      setShowConfirmPassword(false)
+      message.success("Parol muvaffaqiyatli o'zgartirildi!");
+      passwordForm.resetFields();
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
     } catch (error) {
-      message.error('Parolni o\'zgartirishda xatolik')
+      message.error("Parolni o'zgartirishda xatolik");
     } finally {
-      setPasswordLoading(false)
+      setPasswordLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -533,7 +543,7 @@ export default function StudentProfilePage() {
           <Spin size="large" />
         </div>
       </DashboardLayout>
-    )
+    );
   }
 
   // Check forbidden access - Student trying to view another student's profile
@@ -545,13 +555,18 @@ export default function StudentProfilePage() {
           title="403"
           subTitle="Sizda bu sahifaga kirish huquqi yo'q"
           extra={
-            <Button type="primary" onClick={() => router.push(`/dashboard/students/${currentUser?.studentId}`)}>
+            <Button
+              type="primary"
+              onClick={() =>
+                router.push(`/dashboard/students/${currentUser?.studentId}`)
+              }
+            >
               Profilimga qaytish
             </Button>
           }
         />
       </DashboardLayout>
-    )
+    );
   }
 
   if (!student) {
@@ -561,37 +576,40 @@ export default function StudentProfilePage() {
           <Empty description="Talaba topilmadi" />
         </div>
       </DashboardLayout>
-    )
+    );
   }
 
   const statusConfig: Record<string, { color: string; text: string }> = {
-    ACTIVE: { color: 'green', text: 'Aktiv' },
-    GRADUATED: { color: 'blue', text: 'Bitirgan' },
-    SUSPENDED: { color: 'orange', text: 'To\'xtatilgan' },
-    DROPPED: { color: 'red', text: 'Arxiv' },
-  }
+    ACTIVE: { color: "green", text: "Aktiv" },
+    GRADUATED: { color: "blue", text: "Bitirgan" },
+    SUSPENDED: { color: "orange", text: "To'xtatilgan" },
+    DROPPED: { color: "red", text: "Arxiv" },
+  };
 
   // Arxivlangan yoki faol emasligini tekshirish (GRADUATED, SUSPENDED, DROPPED = login bloklangan)
-  const isArchived = student?.status === 'DROPPED' || student?.status === 'GRADUATED' || student?.status === 'SUSPENDED'
+  const isArchived =
+    student?.status === "DROPPED" ||
+    student?.status === "GRADUATED" ||
+    student?.status === "SUSPENDED";
 
   // To'lovlar jami
   const totalPayments = student.payments.reduce(
     (sum, p) => sum + parseFloat(p.amount),
-    0
-  )
+    0,
+  );
 
   // To'lovlar jadvali
   const paymentColumns = [
     {
-      title: 'Sana',
-      dataIndex: 'paymentDate',
-      key: 'paymentDate',
-      render: (date: string) => new Date(date).toLocaleDateString('uz-UZ'),
+      title: "Sana",
+      dataIndex: "paymentDate",
+      key: "paymentDate",
+      render: (date: string) => new Date(date).toLocaleDateString("uz-UZ"),
     },
     {
-      title: 'Summa',
-      dataIndex: 'amount',
-      key: 'amount',
+      title: "Summa",
+      dataIndex: "amount",
+      key: "amount",
       render: (amount: number) => (
         <span className="font-medium text-green-600">
           {Number(amount).toLocaleString()} so'm
@@ -599,106 +617,104 @@ export default function StudentProfilePage() {
       ),
     },
     {
-      title: 'Turi',
-      dataIndex: 'paymentType',
-      key: 'paymentType',
+      title: "Turi",
+      dataIndex: "paymentType",
+      key: "paymentType",
       render: (type: string) => {
         const types: Record<string, string> = {
-          TUITION: 'O\'qish',
-          REGISTRATION: 'Ro\'yxat',
-          EXAM: 'Imtihon',
-          MATERIAL: 'Material',
-          OTHER: 'Boshqa',
-        }
-        return types[type] || type
+          TUITION: "O'qish",
+          REGISTRATION: "Ro'yxat",
+          EXAM: "Imtihon",
+          MATERIAL: "Material",
+          OTHER: "Boshqa",
+        };
+        return types[type] || type;
       },
     },
     {
-      title: 'Usul',
-      dataIndex: 'method',
-      key: 'method',
+      title: "Usul",
+      dataIndex: "method",
+      key: "method",
       render: (method: string) => {
         const methods: Record<string, string> = {
-          CASH: 'Naqd',
-          CARD: 'Karta',
-          BANK_TRANSFER: 'Bank',
-          PAYME: 'Payme',
-          CLICK: 'Click',
-          UZUM: 'Uzum',
-        }
-        return methods[method] || method
+          CASH: "Naqd",
+          CARD: "Karta",
+          BANK_TRANSFER: "Bank",
+          PAYME: "Payme",
+          CLICK: "Click",
+          UZUM: "Uzum",
+        };
+        return methods[method] || method;
       },
     },
-  ]
+  ];
 
   // Davomat jadvali
   const attendanceColumns = [
     {
-      title: 'Sana',
-      dataIndex: 'date',
-      key: 'date',
-      render: (date: string) => new Date(date).toLocaleDateString('uz-UZ'),
+      title: "Sana",
+      dataIndex: "date",
+      key: "date",
+      render: (date: string) => new Date(date).toLocaleDateString("uz-UZ"),
     },
     {
-      title: 'Holat',
-      dataIndex: 'status',
-      key: 'status',
+      title: "Holat",
+      dataIndex: "status",
+      key: "status",
       render: (status: string) => {
         const statusMap: Record<string, { color: string; text: string }> = {
-          PRESENT: { color: 'green', text: 'Keldi' },
-          ABSENT: { color: 'red', text: 'Kelmadi' },
-          LATE: { color: 'orange', text: 'Kechikdi' },
-          EXCUSED: { color: 'blue', text: 'Sababli' },
-        }
-        const config = statusMap[status] || { color: 'default', text: status }
-        return <Tag color={config.color}>{config.text}</Tag>
+          PRESENT: { color: "green", text: "Keldi" },
+          ABSENT: { color: "red", text: "Kelmadi" },
+          LATE: { color: "orange", text: "Kechikdi" },
+          EXCUSED: { color: "blue", text: "Sababli" },
+        };
+        const config = statusMap[status] || { color: "default", text: status };
+        return <Tag color={config.color}>{config.text}</Tag>;
       },
     },
     {
-      title: 'Izoh',
-      dataIndex: 'notes',
-      key: 'notes',
-      render: (notes: string) => notes || '-',
+      title: "Izoh",
+      dataIndex: "notes",
+      key: "notes",
+      render: (notes: string) => notes || "-",
     },
-  ]
+  ];
 
   // Guruhdan chiqarish ustuni uchun filter
-  const studentGroupIds = student.groupStudents.map((gs: any) => gs.group.id)
+  const studentGroupIds = student.groupStudents.map((gs: any) => gs.group.id);
   const filteredGroups = availableGroups.filter(
-    (g) => !studentGroupIds.includes(g.id)
-  )
+    (g) => !studentGroupIds.includes(g.id),
+  );
 
   const tabItems = [
     {
-      key: 'info',
-      label: 'Ma\'lumotlar',
+      key: "info",
+      label: "Ma'lumotlar",
       children: (
         <Descriptions bordered column={{ xs: 1, sm: 2 }}>
           <Descriptions.Item label="Familiya">
             {student.lastName}
           </Descriptions.Item>
-          <Descriptions.Item label="Ism">
-            {student.firstName}
-          </Descriptions.Item>
+          <Descriptions.Item label="Ism">{student.firstName}</Descriptions.Item>
           <Descriptions.Item label="Jinsi">
-            {student.gender === 'MALE' ? (
+            {student.gender === "MALE" ? (
               <Space>
-                <ManOutlined style={{ color: '#1890ff' }} />
+                <ManOutlined style={{ color: "#1890ff" }} />
                 Erkak
               </Space>
-            ) : student.gender === 'FEMALE' ? (
+            ) : student.gender === "FEMALE" ? (
               <Space>
-                <WomanOutlined style={{ color: '#eb2f96' }} />
+                <WomanOutlined style={{ color: "#eb2f96" }} />
                 Ayol
               </Space>
             ) : (
-              '-'
+              "-"
             )}
           </Descriptions.Item>
           <Descriptions.Item label="Tug'ilgan sana">
             {student.dateOfBirth
-              ? new Date(student.dateOfBirth).toLocaleDateString('uz-UZ')
-              : '-'}
+              ? new Date(student.dateOfBirth).toLocaleDateString("uz-UZ")
+              : "-"}
           </Descriptions.Item>
           <Descriptions.Item label="Telefon">
             <a href={`tel:${student.phone}`} className="text-blue-600">
@@ -711,11 +727,11 @@ export default function StudentProfilePage() {
                 {student.parentPhone}
               </a>
             ) : (
-              '-'
+              "-"
             )}
           </Descriptions.Item>
           <Descriptions.Item label="Ro'yxatdan o'tgan">
-            {new Date(student.enrollmentDate).toLocaleDateString('uz-UZ')}
+            {new Date(student.enrollmentDate).toLocaleDateString("uz-UZ")}
           </Descriptions.Item>
           <Descriptions.Item label="Yaratdi">
             {student.createdBy.fullName}
@@ -724,7 +740,7 @@ export default function StudentProfilePage() {
       ),
     },
     {
-      key: 'groups',
+      key: "groups",
       label: (
         <span>
           <TeamOutlined /> Guruhlar ({student.groupStudents.length})
@@ -750,17 +766,20 @@ export default function StudentProfilePage() {
                 <Card key={gs.id} size="small" className="shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="font-semibold text-lg">{gs.group.name}</div>
+                      <div className="font-semibold text-lg">
+                        {gs.group.name}
+                      </div>
                       <div className="text-gray-500">
                         {gs.group.course?.name}
                       </div>
                       <div className="text-sm text-gray-400 mt-1">
-                        Qo'shilgan: {new Date(gs.enrollDate).toLocaleDateString('uz-UZ')}
+                        Qo'shilgan:{" "}
+                        {new Date(gs.enrollDate).toLocaleDateString("uz-UZ")}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <Tag color={gs.status === 'ACTIVE' ? 'green' : 'default'}>
-                        {gs.status === 'ACTIVE' ? 'Aktiv' : gs.status}
+                      <Tag color={gs.status === "ACTIVE" ? "green" : "default"}>
+                        {gs.status === "ACTIVE" ? "Aktiv" : gs.status}
                       </Tag>
                       {/* Hide "Chiqarish" button for STUDENT */}
                       {!isReadOnly && (
@@ -788,7 +807,7 @@ export default function StudentProfilePage() {
       ),
     },
     {
-      key: 'payments',
+      key: "payments",
       label: (
         <span>
           <DollarOutlined /> To'lovlar ({student._count.payments})
@@ -818,7 +837,7 @@ export default function StudentProfilePage() {
       ),
     },
     {
-      key: 'attendance',
+      key: "attendance",
       label: (
         <span>
           <CheckCircleOutlined /> Davomat ({student._count.attendances})
@@ -835,7 +854,7 @@ export default function StudentProfilePage() {
                 style={{ width: 180 }}
                 allowClear
                 value={selectedMonth || undefined}
-                onChange={(val) => setSelectedMonth(val || '')}
+                onChange={(val) => setSelectedMonth(val || "")}
               >
                 {getMonthOptions().map((month) => (
                   <Option key={month.value} value={month.value}>
@@ -851,7 +870,7 @@ export default function StudentProfilePage() {
                 style={{ width: 200 }}
                 allowClear
                 value={selectedGroupFilter || undefined}
-                onChange={(val) => setSelectedGroupFilter(val || '')}
+                onChange={(val) => setSelectedGroupFilter(val || "")}
               >
                 {student.groupStudents.map((gs: any) => (
                   <Option key={gs.group.id} value={gs.group.id}>
@@ -874,8 +893,11 @@ export default function StudentProfilePage() {
                   <Card size="small" className="text-center bg-green-50">
                     <Statistic
                       title="Keldi"
-                      value={attendanceData.stats.allTime.present + attendanceData.stats.allTime.late}
-                      valueStyle={{ color: '#52c41a', fontSize: '18px' }}
+                      value={
+                        attendanceData.stats.allTime.present +
+                        attendanceData.stats.allTime.late
+                      }
+                      valueStyle={{ color: "#52c41a", fontSize: "18px" }}
                       prefix={<CheckCircleOutlined />}
                     />
                   </Card>
@@ -885,7 +907,7 @@ export default function StudentProfilePage() {
                     <Statistic
                       title="Kelmadi"
                       value={attendanceData.stats.allTime.absent}
-                      valueStyle={{ color: '#ff4d4f', fontSize: '18px' }}
+                      valueStyle={{ color: "#ff4d4f", fontSize: "18px" }}
                       prefix={<CloseCircleOutlined />}
                     />
                   </Card>
@@ -895,24 +917,26 @@ export default function StudentProfilePage() {
                     <Statistic
                       title="Jami darslar"
                       value={attendanceData.stats.allTime.total}
-                      valueStyle={{ fontSize: '18px' }}
+                      valueStyle={{ fontSize: "18px" }}
                       prefix={<CalendarOutlined />}
                     />
                   </Card>
                 </Col>
                 <Col xs={12} sm={6}>
                   <Card size="small" className="text-center">
-                    <div className="text-gray-500 text-sm mb-1">Davomat foizi</div>
-                    <Progress
+                    <div className="text-gray-500 text-sm mb-1">
+                      Davomat foizi
+                    </div>
+                    <NURMAKONs
                       type="circle"
                       percent={attendanceData.stats.allTime.attendanceRate}
                       size={60}
                       status={
                         attendanceData.stats.allTime.attendanceRate >= 80
-                          ? 'success'
+                          ? "success"
                           : attendanceData.stats.allTime.attendanceRate >= 50
-                            ? 'normal'
-                            : 'exception'
+                            ? "normal"
+                            : "exception"
                       }
                     />
                   </Card>
@@ -928,13 +952,17 @@ export default function StudentProfilePage() {
                       <Col xs={24} sm={12} md={8} key={gs.group.id}>
                         <Card size="small">
                           <div className="font-medium">{gs.group.name}</div>
-                          <div className="text-xs text-gray-500 mb-2">{gs.group.course.name}</div>
+                          <div className="text-xs text-gray-500 mb-2">
+                            {gs.group.course.name}
+                          </div>
                           <div className="flex justify-between items-center">
                             <div className="flex gap-2">
-                              <Tag color="green">{gs.stats.present + gs.stats.late} keldi</Tag>
+                              <Tag color="green">
+                                {gs.stats.present + gs.stats.late} keldi
+                              </Tag>
                               <Tag color="red">{gs.stats.absent} kelmadi</Tag>
                             </div>
-                            <Progress
+                            <NURMAKONs
                               type="circle"
                               percent={gs.stats.attendanceRate}
                               size={40}
@@ -957,44 +985,74 @@ export default function StudentProfilePage() {
                   pagination={{ pageSize: 15 }}
                   columns={[
                     {
-                      title: 'Sana',
-                      key: 'date',
+                      title: "Sana",
+                      key: "date",
                       width: 120,
-                      render: (_, record) => dayjs(record.date).format('DD.MM.YYYY'),
+                      render: (_, record) =>
+                        dayjs(record.date).format("DD.MM.YYYY"),
                     },
                     {
-                      title: 'Guruh',
-                      key: 'group',
+                      title: "Guruh",
+                      key: "group",
                       render: (_, record) => (
-                        <a onClick={() => router.push(`/dashboard/groups/${record.group.id}`)}>
+                        <a
+                          onClick={() =>
+                            router.push(`/dashboard/groups/${record.group.id}`)
+                          }
+                        >
                           <div className="font-medium">{record.group.name}</div>
-                          <div className="text-xs text-gray-500">{record.group.course.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {record.group.course.name}
+                          </div>
                         </a>
                       ),
                     },
                     {
-                      title: 'Holat',
-                      key: 'status',
+                      title: "Holat",
+                      key: "status",
                       width: 120,
                       render: (_, record) => {
-                        const statusMap: Record<string, { color: string; text: string; icon: any }> = {
-                          PRESENT: { color: 'green', text: 'Keldi', icon: <CheckCircleOutlined /> },
-                          ABSENT: { color: 'red', text: 'Kelmadi', icon: <CloseCircleOutlined /> },
-                          LATE: { color: 'orange', text: 'Kechikdi', icon: <ClockCircleOutlined /> },
-                          EXCUSED: { color: 'blue', text: 'Sababli', icon: <ExclamationCircleOutlined /> },
-                        }
-                        const config = statusMap[record.status] || { color: 'default', text: record.status, icon: null }
+                        const statusMap: Record<
+                          string,
+                          { color: string; text: string; icon: any }
+                        > = {
+                          PRESENT: {
+                            color: "green",
+                            text: "Keldi",
+                            icon: <CheckCircleOutlined />,
+                          },
+                          ABSENT: {
+                            color: "red",
+                            text: "Kelmadi",
+                            icon: <CloseCircleOutlined />,
+                          },
+                          LATE: {
+                            color: "orange",
+                            text: "Kechikdi",
+                            icon: <ClockCircleOutlined />,
+                          },
+                          EXCUSED: {
+                            color: "blue",
+                            text: "Sababli",
+                            icon: <ExclamationCircleOutlined />,
+                          },
+                        };
+                        const config = statusMap[record.status] || {
+                          color: "default",
+                          text: record.status,
+                          icon: null,
+                        };
                         return (
                           <Tag color={config.color} icon={config.icon}>
                             {config.text}
                           </Tag>
-                        )
+                        );
                       },
                     },
                     {
-                      title: 'Izoh',
-                      key: 'notes',
-                      render: (_, record) => record.notes || '-',
+                      title: "Izoh",
+                      key: "notes",
+                      render: (_, record) => record.notes || "-",
                     },
                   ]}
                 />
@@ -1009,130 +1067,167 @@ export default function StudentProfilePage() {
       ),
     },
     // Sozlamalar tab - faqat talaba o'z profilini ko'rayotganda
-    ...(isOwnProfile ? [{
-      key: 'settings',
-      label: (
-        <span>
-          <SettingOutlined /> Sozlamalar
-        </span>
-      ),
-      children: (
-        <div className="max-w-md">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <LockOutlined /> Parolni o'zgartirish
-          </h3>
+    ...(isOwnProfile
+      ? [
+          {
+            key: "settings",
+            label: (
+              <span>
+                <SettingOutlined /> Sozlamalar
+              </span>
+            ),
+            children: (
+              <div className="max-w-md">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <LockOutlined /> Parolni o'zgartirish
+                </h3>
 
-          <Form
-            form={passwordForm}
-            layout="vertical"
-            onFinish={handleChangePassword}
-          >
-            <Form.Item
-              name="currentPassword"
-              label="Joriy parol"
-              rules={[{ required: true, message: 'Joriy parolni kiriting' }]}
-            >
-              <Input
-                type={showCurrentPassword ? 'text' : 'password'}
-                placeholder="Joriy parolingizni kiriting"
-                prefix={<LockOutlined className="text-gray-400" />}
-                suffix={
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={showCurrentPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  />
-                }
-              />
-            </Form.Item>
+                <Form
+                  form={passwordForm}
+                  layout="vertical"
+                  onFinish={handleChangePassword}
+                >
+                  <Form.Item
+                    name="currentPassword"
+                    label="Joriy parol"
+                    rules={[
+                      { required: true, message: "Joriy parolni kiriting" },
+                    ]}
+                  >
+                    <Input
+                      type={showCurrentPassword ? "text" : "password"}
+                      placeholder="Joriy parolingizni kiriting"
+                      prefix={<LockOutlined className="text-gray-400" />}
+                      suffix={
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={
+                            showCurrentPassword ? (
+                              <EyeInvisibleOutlined />
+                            ) : (
+                              <EyeOutlined />
+                            )
+                          }
+                          onClick={() =>
+                            setShowCurrentPassword(!showCurrentPassword)
+                          }
+                        />
+                      }
+                    />
+                  </Form.Item>
 
-            <Form.Item
-              name="newPassword"
-              label="Yangi parol"
-              rules={[
-                { required: true, message: 'Yangi parolni kiriting' },
-                { min: 6, message: 'Parol kamida 6 belgidan iborat bo\'lishi kerak' },
-              ]}
-            >
-              <Input
-                type={showNewPassword ? 'text' : 'password'}
-                placeholder="Yangi parolni kiriting"
-                prefix={<LockOutlined className="text-gray-400" />}
-                suffix={
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={showNewPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                  />
-                }
-              />
-            </Form.Item>
+                  <Form.Item
+                    name="newPassword"
+                    label="Yangi parol"
+                    rules={[
+                      { required: true, message: "Yangi parolni kiriting" },
+                      {
+                        min: 6,
+                        message:
+                          "Parol kamida 6 belgidan iborat bo'lishi kerak",
+                      },
+                    ]}
+                  >
+                    <Input
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="Yangi parolni kiriting"
+                      prefix={<LockOutlined className="text-gray-400" />}
+                      suffix={
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={
+                            showNewPassword ? (
+                              <EyeInvisibleOutlined />
+                            ) : (
+                              <EyeOutlined />
+                            )
+                          }
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        />
+                      }
+                    />
+                  </Form.Item>
 
-            <Form.Item
-              name="confirmPassword"
-              label="Yangi parolni tasdiqlash"
-              dependencies={['newPassword']}
-              rules={[
-                { required: true, message: 'Parolni tasdiqlang' },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue('newPassword') === value) {
-                      return Promise.resolve()
-                    }
-                    return Promise.reject(new Error('Parollar mos kelmaydi'))
-                  },
-                }),
-              ]}
-            >
-              <Input
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Yangi parolni qayta kiriting"
-                prefix={<LockOutlined className="text-gray-400" />}
-                suffix={
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={showConfirmPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  />
-                }
-              />
-            </Form.Item>
+                  <Form.Item
+                    name="confirmPassword"
+                    label="Yangi parolni tasdiqlash"
+                    dependencies={["newPassword"]}
+                    rules={[
+                      { required: true, message: "Parolni tasdiqlang" },
+                      ({ getFieldValue }) => ({
+                        validator(_, value) {
+                          if (
+                            !value ||
+                            getFieldValue("newPassword") === value
+                          ) {
+                            return Promise.resolve();
+                          }
+                          return Promise.reject(
+                            new Error("Parollar mos kelmaydi"),
+                          );
+                        },
+                      }),
+                    ]}
+                  >
+                    <Input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Yangi parolni qayta kiriting"
+                      prefix={<LockOutlined className="text-gray-400" />}
+                      suffix={
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={
+                            showConfirmPassword ? (
+                              <EyeInvisibleOutlined />
+                            ) : (
+                              <EyeOutlined />
+                            )
+                          }
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
+                        />
+                      }
+                    />
+                  </Form.Item>
 
-            <div className="bg-gray-50 p-3 rounded-lg mb-4 text-sm text-gray-600">
-              <div className="font-medium mb-1">Parol talablari:</div>
-              <ul className="list-disc ml-4">
-                <li>Kamida 6 ta belgidan iborat bo'lishi kerak</li>
-              </ul>
-            </div>
+                  <div className="bg-gray-50 p-3 rounded-lg mb-4 text-sm text-gray-600">
+                    <div className="font-medium mb-1">Parol talablari:</div>
+                    <ul className="list-disc ml-4">
+                      <li>Kamida 6 ta belgidan iborat bo'lishi kerak</li>
+                    </ul>
+                  </div>
 
-            <Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={passwordLoading}
-                icon={<LockOutlined />}
-                className="bg-orange-500 hover:bg-orange-600"
-              >
-                Parolni o'zgartirish
-              </Button>
-            </Form.Item>
-          </Form>
-        </div>
-      ),
-    }] : []),
-  ]
+                  <Form.Item>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      loading={passwordLoading}
+                      icon={<LockOutlined />}
+                      className="bg-orange-500 hover:bg-orange-600"
+                    >
+                      Parolni o'zgartirish
+                    </Button>
+                  </Form.Item>
+                </Form>
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
 
   // Determine breadcrumb based on user role
   const breadcrumbItems = isStudent
-    ? [{ title: 'Profilim' }]
+    ? [{ title: "Profilim" }]
     : [
         { title: <Link href="/dashboard">Dashboard</Link> },
         { title: <Link href="/dashboard/students">Talabalar</Link> },
         { title: `${student.lastName} ${student.firstName}` },
-      ]
+      ];
 
   return (
     <DashboardLayout>
@@ -1147,7 +1242,7 @@ export default function StudentProfilePage() {
               {!isStudent && (
                 <Button
                   icon={<ArrowLeftOutlined />}
-                  onClick={() => router.push('/dashboard/students')}
+                  onClick={() => router.push("/dashboard/students")}
                 >
                   Orqaga
                 </Button>
@@ -1169,10 +1264,10 @@ export default function StudentProfilePage() {
                   </span>
                   {student.gender && (
                     <span className="text-gray-500">
-                      {student.gender === 'MALE' ? (
-                        <ManOutlined style={{ color: '#1890ff' }} />
+                      {student.gender === "MALE" ? (
+                        <ManOutlined style={{ color: "#1890ff" }} />
                       ) : (
-                        <WomanOutlined style={{ color: '#eb2f96' }} />
+                        <WomanOutlined style={{ color: "#eb2f96" }} />
                       )}
                     </span>
                   )}
@@ -1204,7 +1299,11 @@ export default function StudentProfilePage() {
                     cancelText="Bekor qilish"
                     okButtonProps={{ loading: reactivateLoading }}
                   >
-                    <Button type="primary" icon={<UndoOutlined />} className="bg-green-500 hover:bg-green-600">
+                    <Button
+                      type="primary"
+                      icon={<UndoOutlined />}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
                       Qayta faollashtirish
                     </Button>
                   </Popconfirm>
@@ -1258,7 +1357,7 @@ export default function StudentProfilePage() {
                 title="Jami to'lov"
                 value={totalPayments}
                 suffix="so'm"
-                valueStyle={{ fontSize: '18px' }}
+                valueStyle={{ fontSize: "18px" }}
               />
             </Card>
           </Col>
@@ -1289,7 +1388,7 @@ export default function StudentProfilePage() {
               <Form.Item
                 label="Familiya"
                 name="lastName"
-                rules={[{ required: true, message: 'Familiya kiriting' }]}
+                rules={[{ required: true, message: "Familiya kiriting" }]}
               >
                 <Input placeholder="Rahimov" />
               </Form.Item>
@@ -1298,7 +1397,7 @@ export default function StudentProfilePage() {
               <Form.Item
                 label="Ism"
                 name="firstName"
-                rules={[{ required: true, message: 'Ism kiriting' }]}
+                rules={[{ required: true, message: "Ism kiriting" }]}
               >
                 <Input placeholder="Aziz" />
               </Form.Item>
@@ -1310,7 +1409,7 @@ export default function StudentProfilePage() {
               <Form.Item
                 label="Jinsi"
                 name="gender"
-                rules={[{ required: true, message: 'Jinsini tanlang' }]}
+                rules={[{ required: true, message: "Jinsini tanlang" }]}
               >
                 <Select placeholder="Tanlang">
                   <Option value="MALE">Erkak</Option>
@@ -1321,7 +1420,7 @@ export default function StudentProfilePage() {
             <Col span={12}>
               <Form.Item label="Tug'ilgan sana" name="dateOfBirth">
                 <DatePicker
-                  style={{ width: '100%' }}
+                  style={{ width: "100%" }}
                   format="DD.MM.YYYY"
                   placeholder="Tanlang"
                 />
@@ -1335,8 +1434,11 @@ export default function StudentProfilePage() {
                 label="Telefon"
                 name="phone"
                 rules={[
-                  { required: true, message: 'Telefon kiriting' },
-                  { pattern: /^\+998\d{9}$/, message: '+998901234567 formatida' },
+                  { required: true, message: "Telefon kiriting" },
+                  {
+                    pattern: /^\+998\d{9}$/,
+                    message: "+998901234567 formatida",
+                  },
                 ]}
               >
                 <Input placeholder="+998901234567" />
@@ -1347,7 +1449,10 @@ export default function StudentProfilePage() {
                 label="Ota-ona telefoni"
                 name="parentPhone"
                 rules={[
-                  { pattern: /^\+998\d{9}$/, message: '+998901234567 formatida' },
+                  {
+                    pattern: /^\+998\d{9}$/,
+                    message: "+998901234567 formatida",
+                  },
                 ]}
               >
                 <Input placeholder="+998901234567" />
@@ -1399,7 +1504,7 @@ export default function StudentProfilePage() {
       >
         <div className="py-4">
           <Select
-            style={{ width: '100%' }}
+            style={{ width: "100%" }}
             placeholder="Guruhni tanlang"
             value={selectedGroupId || undefined}
             onChange={setSelectedGroupId}
@@ -1410,7 +1515,8 @@ export default function StudentProfilePage() {
                 <div>
                   <div className="font-medium">{group.name}</div>
                   <div className="text-xs text-gray-500">
-                    {group.course?.name} - {group.teacher?.lastName} {group.teacher?.firstName}
+                    {group.course?.name} - {group.teacher?.lastName}{" "}
+                    {group.teacher?.firstName}
                   </div>
                 </div>
               </Option>
@@ -1458,7 +1564,10 @@ export default function StudentProfilePage() {
               <div>
                 <div className="font-medium text-gray-900 mb-2">DIQQAT!</div>
                 <div className="text-gray-600 text-sm">
-                  <strong>{student?.lastName} {student?.firstName}</strong> arxivga o'tkaziladi.
+                  <strong>
+                    {student?.lastName} {student?.firstName}
+                  </strong>{" "}
+                  arxivga o'tkaziladi.
                 </div>
               </div>
             </div>
@@ -1468,35 +1577,45 @@ export default function StudentProfilePage() {
             <div className="flex items-start gap-3">
               <LockOutlined className="text-red-500 mt-1" />
               <div>
-                <div className="font-medium text-gray-800">Login huquqi bekor qilinadi</div>
-                <div className="text-sm text-gray-500">Talaba tizimga kira olmaydi</div>
+                <div className="font-medium text-gray-800">
+                  Login huquqi bekor qilinadi
+                </div>
+                <div className="text-sm text-gray-500">
+                  Talaba tizimga kira olmaydi
+                </div>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
               <CheckCircleOutlined className="text-green-500 mt-1" />
               <div>
-                <div className="font-medium text-gray-800">Ma'lumotlar saqlanadi</div>
-                <div className="text-sm text-gray-500">Barcha to'lovlar, davomat tarixi saqlanib qoladi</div>
+                <div className="font-medium text-gray-800">
+                  Ma'lumotlar saqlanadi
+                </div>
+                <div className="text-sm text-gray-500">
+                  Barcha to'lovlar, davomat tarixi saqlanib qoladi
+                </div>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
               <UndoOutlined className="text-blue-500 mt-1" />
               <div>
-                <div className="font-medium text-gray-800">Qayta faollashtirish mumkin</div>
-                <div className="text-sm text-gray-500">Kerak bo'lsa talabani qayta tiklash mumkin</div>
+                <div className="font-medium text-gray-800">
+                  Qayta faollashtirish mumkin
+                </div>
+                <div className="text-sm text-gray-500">
+                  Kerak bo'lsa talabani qayta tiklash mumkin
+                </div>
               </div>
             </div>
           </div>
 
           <Divider />
 
-          <div className="text-center text-gray-600">
-            Davom etasizmi?
-          </div>
+          <div className="text-center text-gray-600">Davom etasizmi?</div>
         </div>
       </Modal>
     </DashboardLayout>
-  )
+  );
 }
