@@ -185,7 +185,7 @@ export default function GroupsPage() {
   const fetchTeachers = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('/api/teachers', {
+      const response = await fetch('/api/teachers?status=ACTIVE&limit=1000', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
