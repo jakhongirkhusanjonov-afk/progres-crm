@@ -40,7 +40,7 @@
   <circle cx="250" cy="180" r="140" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.08"/>
   <circle cx="250" cy="180" r="155" fill="none" stroke="#60a5fa" stroke-width="1" opacity="0.05"/>
   
-  <!-- Hexagon icon with NURMAKONs -->
+  <!-- Hexagon icon with Progress -->
   <g filter="url(#shadow)">
     <path d="M 250 95 L 310 125 L 310 185 L 250 215 L 190 185 L 190 125 Z" 
           fill="url(#iconGrad)" 
@@ -53,7 +53,7 @@
         fill="#1e40af" 
         opacity="0.7"/>
   
-  <!-- NURMAKONs rose -->
+  <!-- Progress rose -->
   <g transform="translate(250, 155)">
     <!-- North pointer (red, prominent) -->
     <g filter="url(#glow)">

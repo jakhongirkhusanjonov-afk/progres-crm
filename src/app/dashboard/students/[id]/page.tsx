@@ -52,7 +52,7 @@ import {
   EyeOutlined,
   EyeInvisibleOutlined,
 } from "@ant-design/icons";
-import { NURMAKONs } from "antd";
+import { Progress } from "antd";
 import Link from "next/link";
 import dayjs from "dayjs";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -927,7 +927,7 @@ export default function StudentProfilePage() {
                     <div className="text-gray-500 text-sm mb-1">
                       Davomat foizi
                     </div>
-                    <NURMAKONs
+                    <Progress
                       type="circle"
                       percent={attendanceData.stats.allTime.attendanceRate}
                       size={60}
@@ -962,7 +962,7 @@ export default function StudentProfilePage() {
                               </Tag>
                               <Tag color="red">{gs.stats.absent} kelmadi</Tag>
                             </div>
-                            <NURMAKONs
+                            <Progress
                               type="circle"
                               percent={gs.stats.attendanceRate}
                               size={40}

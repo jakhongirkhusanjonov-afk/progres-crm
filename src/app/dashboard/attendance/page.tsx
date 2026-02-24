@@ -13,7 +13,7 @@ import {
   Card,
   Empty,
   Spin,
-  NURMAKONs,
+  Progress,
   Popconfirm,
 } from "antd";
 import {
@@ -372,9 +372,9 @@ export default function AttendancePage() {
                     </div>
                   </div>
 
-                  {/* NURMAKONs */}
+                  {/* Progress */}
                   <div className="mt-2">
-                    <NURMAKONs
+                    <Progress
                       percent={session.stats.attendanceRate}
                       size="small"
                       status={

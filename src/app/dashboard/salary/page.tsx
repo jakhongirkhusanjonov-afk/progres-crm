@@ -16,7 +16,7 @@ import {
   message,
   Empty,
   Spin,
-  NURMAKONs,
+  Progress,
 } from "antd";
 import {
   DollarOutlined,
@@ -322,8 +322,8 @@ export default function SalaryPage() {
                     )}
                   </div>
 
-                  {/* NURMAKONs */}
-                  <NURMAKONs
+                  {/* Progress */}
+                  <Progress
                     percent={getPaidPercentage(salary)}
                     size="small"
                     status={

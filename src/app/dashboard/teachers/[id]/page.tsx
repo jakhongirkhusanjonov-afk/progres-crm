@@ -18,7 +18,7 @@ import {
   Empty,
   Spin,
   Select,
-  NURMAKONs,
+  Progress,
   Divider,
   Modal,
   Form,
@@ -562,7 +562,7 @@ export default function TeacherProfilePage({
       title: "Davomat %",
       key: "rate",
       render: (_, record) => (
-        <NURMAKONs
+        <Progress
           percent={record.stats.attendanceRate}
           size="small"
           status={
@@ -1193,7 +1193,7 @@ export default function TeacherProfilePage({
                                 key: "coefficient",
                                 width: 100,
                                 render: (_, record) => (
-                                  <NURMAKONs
+                                  <Progress
                                     percent={Math.round(
                                       record.attendanceCoefficient * 100,
                                     )}

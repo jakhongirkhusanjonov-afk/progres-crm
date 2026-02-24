@@ -9,7 +9,7 @@ import {
   Select,
   Empty,
   Spin,
-  NURMAKONs,
+  Progress,
   Collapse,
   Divider,
   message,
@@ -311,8 +311,8 @@ export default function MySalaryPage() {
                 {formatPrice(salaryData.summary.totalSalary)}
               </div>
 
-              {/* NURMAKONs */}
-              <NURMAKONs
+              {/* Progress */}
+              <Progress
                 percent={getPaidPercentage()}
                 size="small"
                 status={
