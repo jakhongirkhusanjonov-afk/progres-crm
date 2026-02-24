@@ -212,7 +212,7 @@ export const PUT = withAuth(async (
   }
 })
 
-// O'qituvchini o'chirish (yoki arxivga olish)
+// O'qituvchini bazadan butunlay o'chirish (hard delete)
 export const DELETE = withAuth(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -225,39 +225,56 @@ export const DELETE = withAuth(async (
       return NextResponse.json({ error: 'Avtorizatsiya kerak' }, { status: 401 })
     }
 
-    // URL dan "hard" parametrini olish
-    const searchParams = request.nextUrl.searchParams
-    const hardDelete = searchParams.get('hard') === 'true'
-
-    if (hardDelete) {
-      // To'liq o'chirish
-      await prisma.teacher.delete({
-        where: { id },
-      })
-
-      return NextResponse.json({
-        success: true,
-        message: 'O\'qituvchi to\'liq o\'chirildi'
-      })
-    } else {
-      // Arxivga olish (status ni o'zgartirish)
-      const teacher = await prisma.teacher.update({
-        where: { id },
-        data: {
-          status: 'RESIGNED',
+    // O'qituvchi mavjudligini tekshirish
+    const teacher = await prisma.teacher.findUnique({
+      where: { id },
+      include: {
+        groups: {
+          where: { status: 'ACTIVE' },
+          select: { id: true, name: true },
         },
-      })
+        _count: {
+          select: { groups: true },
+        },
+      },
+    })
 
-      return NextResponse.json({
-        success: true,
-        message: 'O\'qituvchi arxivga olindi',
-        teacher
-      })
+    if (!teacher) {
+      return NextResponse.json(
+        { error: "O'qituvchi topilmadi" },
+        { status: 404 }
+      )
     }
+
+    // Faol guruhlari bor bo'lsa — o'chirishni bloklash
+    if (teacher.groups.length > 0) {
+      const groupNames = teacher.groups.map((g) => g.name).join(', ')
+      return NextResponse.json(
+        {
+          error: `O'qituvchini o'chirib bo'lmaydi — uning faol guruhlari mavjud: ${groupNames}. Avval guruhlarni yoping yoki boshqa o'qituvchiga o'tkazing.`,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Tranzaksiya ichida: bog'liq yozuvlarni tozalab, o'qituvchini o'chirish
+    await prisma.$transaction(async (tx) => {
+      // 1. Schedule yozuvlarini o'chirish (cascade yo'q)
+      await tx.schedule.deleteMany({ where: { teacherId: id } })
+
+      // 2. O'qituvchini o'chirish
+      //    TeacherCourse va SalaryPayment — Prisma cascade bilan avtomatik o'chiriladi
+      await tx.teacher.delete({ where: { id } })
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: "O'qituvchi bazadan butunlay o'chirildi",
+    })
   } catch (error) {
     console.error('Delete teacher error:', error)
     return NextResponse.json(
-      { error: 'O\'qituvchini o\'chirishda xatolik' },
+      { error: "O'qituvchini o'chirishda xatolik yuz berdi" },
       { status: 500 }
     )
   }

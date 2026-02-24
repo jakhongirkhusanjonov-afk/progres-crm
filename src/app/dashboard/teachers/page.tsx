@@ -279,13 +279,15 @@ export default function TeachersPage() {
     }
   }
 
-  // O'qituvchini o'chirish (arxivga olish)
+  // O'qituvchini bazadan butunlay o'chirish (hard delete)
   const handleDelete = (id: string) => {
     Modal.confirm({
-      title: 'O\'qituvchini arxivga olish',
-      content: 'Haqiqatan ham bu o\'qituvchini arxivga olmoqchimisiz?',
-      okText: 'Ha',
-      cancelText: 'Yo\'q',
+      title: "O'qituvchini o'chirish",
+      content:
+        "Diqqat! Bu o'qituvchi ma'lumotlar bazasidan butunlay o'chiriladi va qayta tiklab bo'lmaydi. Davom etishni xohlaysizmi?",
+      okText: "Ha, o'chirish",
+      okButtonProps: { danger: true },
+      cancelText: "Bekor qilish",
       onOk: async () => {
         try {
           const token = localStorage.getItem('token')
@@ -296,12 +298,17 @@ export default function TeachersPage() {
             },
           })
 
-          if (!response.ok) throw new Error('Failed to delete')
+          const data = await response.json()
 
-          message.success('O\'qituvchi arxivga olindi')
+          if (!response.ok) {
+            message.error(data.error || "O'qituvchini o'chirishda xatolik")
+            return
+          }
+
+          message.success("O'qituvchi muvaffaqiyatli o'chirildi")
           fetchTeachers()
         } catch (error) {
-          message.error('O\'qituvchini o\'chirishda xatolik')
+          message.error("O'qituvchini o'chirishda xatolik")
         }
       },
     })
@@ -550,8 +557,6 @@ export default function TeachersPage() {
               style={{ height: 48 }}
             >
               <Option value="ACTIVE">Aktiv</Option>
-              <Option value="ON_LEAVE">Ta'tilda</Option>
-              <Option value="RESIGNED">Ishdan ketgan</Option>
             </Select>
           </div>
         </div>
@@ -634,15 +639,7 @@ export default function TeachersPage() {
             <TextArea rows={2} placeholder="Toshkent sh., Chilonzor t." style={{ fontSize: '16px' }} />
           </Form.Item>
 
-          {editingTeacher && (
-            <Form.Item label="Status" name="status">
-              <Select size="large" style={{ height: 48 }}>
-                <Option value="ACTIVE">Aktiv</Option>
-                <Option value="ON_LEAVE">Ta'tilda</Option>
-                <Option value="RESIGNED">Ishdan ketgan</Option>
-              </Select>
-            </Form.Item>
-          )}
+
 
           {/* Fanlar va foizlar */}
           <Divider className="!my-4">
