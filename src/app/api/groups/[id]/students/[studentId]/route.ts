@@ -40,15 +40,22 @@ export const DELETE = withAuth(async (
       )
     }
 
-    // GroupStudent ni o'chirish
-    await prisma.groupStudent.delete({
-      where: {
-        groupId_studentId: {
-          groupId,
-          studentId,
+    // Tranzaksiya: avval bog'liq davomatlarni o'chir, keyin GroupStudent'ni o'chir
+    await prisma.$transaction([
+      // 1. Ushbu guruh bo'yicha talabaning barcha davomatlari o'chiriladi
+      prisma.attendance.deleteMany({
+        where: { groupId, studentId },
+      }),
+      // 2. Talabani guruhdan chiqaramiz
+      prisma.groupStudent.delete({
+        where: {
+          groupId_studentId: {
+            groupId,
+            studentId,
+          },
         },
-      },
-    })
+      }),
+    ])
 
     return NextResponse.json({
       success: true,
@@ -62,6 +69,7 @@ export const DELETE = withAuth(async (
     )
   }
 })
+
 
 // Talabaning guruh ma'lumotlarini yangilash (narx, chegirma)
 export const PUT = withAuth(async (

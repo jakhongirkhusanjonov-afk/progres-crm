@@ -366,7 +366,7 @@ export default function GroupProfilePage({
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `/api/groups/${id}/students?studentId=${studentId}`,
+        `/api/groups/${id}/students/${studentId}`,
         {
           method: "DELETE",
           headers: {
