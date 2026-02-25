@@ -84,7 +84,6 @@ export const NAVIGATION_ITEMS: Record<Role, { label: string; href: string; icon?
     { label: "To'lovlar", href: '/dashboard/payments', icon: 'payment' },
     { label: 'Maosh', href: '/dashboard/salary', icon: 'money' },
     { label: 'Hisobotlar', href: '/dashboard/reports', icon: 'report' },
-    { label: 'Adminlar', href: '/dashboard/admins', icon: 'admin' },
     { label: 'Foydalanuvchilar', href: '/dashboard/users', icon: 'users-cog' },
     { label: 'Sozlamalar', href: '/dashboard/settings', icon: 'settings' },
   ],
