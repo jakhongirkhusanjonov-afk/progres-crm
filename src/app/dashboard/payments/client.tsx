@@ -112,6 +112,18 @@ const paymentMethods = [
   { value: 'UZUM', label: 'Uzum' },
 ]
 
+const MONTHS = [
+  'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
+  'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr',
+]
+
+const YEARS = [2024, 2025, 2026, 2027]
+
+// Joriy oy va yil
+const now = new Date()
+const CURRENT_MONTH = MONTHS[now.getMonth()]
+const CURRENT_YEAR = now.getFullYear()
+
 export default function PaymentsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -304,7 +316,17 @@ export default function PaymentsContent() {
     if (student?.groupStudents && student.groupStudents.length > 0) {
       const firstGroup = student.groupStudents[0]
       const price = Number(firstGroup.price || firstGroup.group.price || firstGroup.group.course.price || 0)
-      form.setFieldsValue({ groupId: firstGroup.group.id, amount: price })
+      form.setFieldsValue({
+        groupId: firstGroup.group.id,
+        amount: price,
+        forMonth: form.getFieldValue('forMonth') || CURRENT_MONTH,
+        forYear: form.getFieldValue('forYear') || CURRENT_YEAR,
+      })
+    } else {
+      form.setFieldsValue({
+        forMonth: form.getFieldValue('forMonth') || CURRENT_MONTH,
+        forYear: form.getFieldValue('forYear') || CURRENT_YEAR,
+      })
     }
   }
 
@@ -323,6 +345,9 @@ export default function PaymentsContent() {
           paymentType: values.paymentType,
           method: values.method,
           description: values.description,
+          groupId: values.groupId || null,
+          forMonth: values.forMonth || null,
+          forYear: values.forYear || null,
         }),
       })
 
@@ -331,11 +356,19 @@ export default function PaymentsContent() {
         throw new Error(errorData.error || "To'lov qo'shishda xatolik")
       }
 
+      // Guruh nomini topish
+      const groupName = selectedStudent?.groupStudents?.find(
+        (gs) => gs.group.id === values.groupId
+      )?.group.name || ''
+
       // Show success screen
       setLastPayment({
         studentName: selectedStudent ? `${selectedStudent.lastName} ${selectedStudent.firstName}` : '',
         amount: values.amount,
         method: paymentMethods.find(m => m.value === values.method)?.label || values.method,
+        groupName,
+        forMonth: values.forMonth || '',
+        forYear: values.forYear || '',
       })
       setPaymentSuccess(true)
 
@@ -355,12 +388,23 @@ export default function PaymentsContent() {
       amount: debtor.debtAmount,
       paymentType: 'TUITION',
       method: 'CASH',
+      groupId: debtor.group.id,
+      forMonth: CURRENT_MONTH,
+      forYear: CURRENT_YEAR,
     })
     setSelectedStudent({
       id: debtor.student.id,
       firstName: debtor.student.firstName,
       lastName: debtor.student.lastName,
       phone: debtor.student.phone,
+      groupStudents: [{
+        id: debtor.id,
+        group: {
+          id: debtor.group.id,
+          name: debtor.group.name,
+          course: { name: debtor.group.course.name, price: 0 },
+        },
+      }],
     })
     setPaymentSuccess(false)
     setModalVisible(true)
@@ -706,7 +750,19 @@ export default function PaymentsContent() {
               <CheckCircleOutlined className="text-green-500 text-4xl" />
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">To'lov qabul qilindi!</h3>
-            <p className="text-gray-600 mb-4">{lastPayment?.studentName}</p>
+            <p className="text-gray-600 mb-1">{lastPayment?.studentName}</p>
+            {lastPayment?.groupName && (
+              <p className="text-sm text-gray-500 mb-1">
+                <TeamOutlined className="mr-1" />
+                {lastPayment.groupName}
+              </p>
+            )}
+            {(lastPayment?.forMonth || lastPayment?.forYear) && (
+              <p className="text-sm text-blue-500 mb-4">
+                <CalendarOutlined className="mr-1" />
+                {lastPayment.forMonth} {lastPayment.forYear}
+              </p>
+            )}
             <div className="bg-green-50 rounded-xl p-4 inline-block">
               <div className="text-2xl font-bold text-green-600">{formatPrice(lastPayment?.amount || 0)}</div>
               <div className="text-sm text-gray-500">{lastPayment?.method}</div>
@@ -746,16 +802,49 @@ export default function PaymentsContent() {
             </Form.Item>
 
             {selectedStudent?.groupStudents && selectedStudent.groupStudents.length > 0 && (
-              <Form.Item name="groupId" label="Guruh">
-                <Select size="large" style={{ height: 48 }}>
+              <Form.Item
+                name="groupId"
+                label="Guruh"
+                rules={[{ required: true, message: 'Guruhni tanlang' }]}
+              >
+                <Select size="large" style={{ height: 48 }} placeholder="Guruhni tanlang">
                   {selectedStudent.groupStudents.map((gs) => (
                     <Select.Option key={gs.group.id} value={gs.group.id}>
-                      {gs.group.name} - {gs.group.course.name}
+                      {gs.group.name} — {gs.group.course.name}
                     </Select.Option>
                   ))}
                 </Select>
               </Form.Item>
             )}
+
+            <div className="flex gap-3">
+              <Form.Item
+                name="forMonth"
+                label="Oy"
+                className="flex-1"
+                rules={[{ required: true, message: 'Oyni tanlang' }]}
+                initialValue={CURRENT_MONTH}
+              >
+                <Select size="large" style={{ height: 48 }} placeholder="Oy">
+                  {MONTHS.map((m) => (
+                    <Select.Option key={m} value={m}>{m}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item
+                name="forYear"
+                label="Yil"
+                className="flex-1"
+                rules={[{ required: true, message: 'Yilni tanlang' }]}
+                initialValue={CURRENT_YEAR}
+              >
+                <Select size="large" style={{ height: 48 }} placeholder="Yil">
+                  {YEARS.map((y) => (
+                    <Select.Option key={y} value={y}>{y}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </div>
 
             <Form.Item
               name="amount"

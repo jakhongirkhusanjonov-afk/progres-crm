@@ -132,7 +132,7 @@ export const POST = withAuth(async (request: NextRequest) => {
     }
 
     const body = await request.json();
-    const { studentId, amount, paymentType, method, description } = body;
+    const { studentId, amount, paymentType, method, description, groupId, forMonth, forYear } = body;
 
     // Validatsiya
     if (!studentId || !amount || !paymentType || !method) {
@@ -154,6 +154,14 @@ export const POST = withAuth(async (request: NextRequest) => {
       );
     }
 
+    // Guruh mavjudligini tekshirish (agar berilgan bo'lsa)
+    if (groupId) {
+      const group = await prisma.group.findUnique({ where: { id: groupId } });
+      if (!group) {
+        return NextResponse.json({ error: "Guruh topilmadi" }, { status: 404 });
+      }
+    }
+
     const payment = await prisma.payment.create({
       data: {
         studentId,
@@ -161,6 +169,9 @@ export const POST = withAuth(async (request: NextRequest) => {
         paymentType,
         method,
         description: description || null,
+        groupId: groupId || null,
+        forMonth: forMonth || null,
+        forYear: forYear ? Number(forYear) : null,
         createdById: user.userId,
       },
       include: {
@@ -170,6 +181,13 @@ export const POST = withAuth(async (request: NextRequest) => {
             firstName: true,
             lastName: true,
             phone: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            course: { select: { name: true } },
           },
         },
         createdBy: {
@@ -191,6 +209,10 @@ export const POST = withAuth(async (request: NextRequest) => {
         paymentType: payment.paymentType,
         method: payment.method,
         description: payment.description,
+        groupId: payment.groupId,
+        group: payment.group,
+        forMonth: payment.forMonth,
+        forYear: payment.forYear,
         paymentDate: payment.paymentDate.toISOString(),
         student: payment.student,
         createdBy: {

@@ -183,6 +183,7 @@ model Group {
   schedules     Schedule[]
   attendances   Attendance[]
   testResults   TestResult[]
+  payments      Payment[]
 }
 
 enum GroupStatus {
@@ -255,6 +256,10 @@ model Payment {
   id          String        @id @default(cuid())
   studentId   String
   student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId     String?
+  group       Group?        @relation(fields: [groupId], references: [id])
+  forMonth    String?       // "Yanvar", "Fevral", ...
+  forYear     Int?          // 2025, 2026, ...
   amount      Decimal
   paymentDate DateTime      @default(now())
   paymentType PaymentType
