@@ -20,8 +20,6 @@ import {
   SaveOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ClockCircleOutlined,
-  ExclamationCircleOutlined,
   UserOutlined,
   TeamOutlined,
   CalendarOutlined,
@@ -37,7 +35,7 @@ interface Student {
   phone: string
   attendance: {
     id: string
-    status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'
+    status: 'PRESENT' | 'ABSENT'
     notes?: string
   } | null
 }
@@ -60,8 +58,6 @@ interface GroupOption {
 const statusConfig = {
   PRESENT: { icon: <CheckCircleOutlined />, label: 'Keldi', color: 'bg-green-500', textColor: 'text-green-500', bgLight: 'bg-green-50', border: 'border-green-500' },
   ABSENT: { icon: <CloseCircleOutlined />, label: 'Kelmadi', color: 'bg-red-500', textColor: 'text-red-500', bgLight: 'bg-red-50', border: 'border-red-500' },
-  LATE: { icon: <ClockCircleOutlined />, label: 'Kechikdi', color: 'bg-yellow-500', textColor: 'text-yellow-500', bgLight: 'bg-yellow-50', border: 'border-yellow-500' },
-  EXCUSED: { icon: <ExclamationCircleOutlined />, label: 'Sababli', color: 'bg-blue-500', textColor: 'text-blue-500', bgLight: 'bg-blue-50', border: 'border-blue-500' },
 }
 
 export default function AttendanceMarkContent() {
@@ -210,9 +206,8 @@ export default function AttendanceMarkContent() {
   }
 
   // Stats
-  const presentCount = Object.values(attendances).filter((a) => a.status === 'PRESENT' || a.status === 'LATE').length
+  const presentCount = Object.values(attendances).filter((a) => a.status === 'PRESENT').length
   const absentCount = Object.values(attendances).filter((a) => a.status === 'ABSENT').length
-  const excusedCount = Object.values(attendances).filter((a) => a.status === 'EXCUSED').length
 
   return (
     <DashboardLayout>
@@ -327,22 +322,18 @@ export default function AttendanceMarkContent() {
 
       {/* Stats */}
       {students.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          <div className="bg-green-50 rounded-lg p-2 text-center border border-green-200">
-            <div className="text-green-600 font-bold text-lg">{presentCount}</div>
-            <div className="text-green-600 text-xs">Keldi</div>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
+            <div className="text-green-600 font-bold text-xl">{presentCount}</div>
+            <div className="text-green-600 text-xs font-medium">Keldi</div>
           </div>
-          <div className="bg-red-50 rounded-lg p-2 text-center border border-red-200">
-            <div className="text-red-600 font-bold text-lg">{absentCount}</div>
-            <div className="text-red-600 text-xs">Kelmadi</div>
+          <div className="bg-red-50 rounded-lg p-3 text-center border border-red-200">
+            <div className="text-red-600 font-bold text-xl">{absentCount}</div>
+            <div className="text-red-600 text-xs font-medium">Kelmadi</div>
           </div>
-          <div className="bg-blue-50 rounded-lg p-2 text-center border border-blue-200">
-            <div className="text-blue-600 font-bold text-lg">{excusedCount}</div>
-            <div className="text-blue-600 text-xs">Sababli</div>
-          </div>
-          <div className="bg-gray-50 rounded-lg p-2 text-center border border-gray-200">
-            <div className="text-gray-600 font-bold text-lg">{students.length}</div>
-            <div className="text-gray-600 text-xs">Jami</div>
+          <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
+            <div className="text-gray-600 font-bold text-xl">{students.length}</div>
+            <div className="text-gray-600 text-xs font-medium">Jami</div>
           </div>
         </div>
       )}
@@ -382,20 +373,20 @@ export default function AttendanceMarkContent() {
                   </div>
 
                   {/* Status buttons */}
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     {Object.entries(statusConfig).map(([status, cfg]) => (
                       <button
                         key={status}
                         onClick={() => handleStatusChange(student.id, status)}
-                        className={`p-2 rounded-lg transition-all touch-manipulation flex flex-col items-center justify-center ${
+                        className={`p-3 rounded-xl transition-all touch-manipulation flex items-center justify-center gap-2 ${
                           currentStatus === status
                             ? `${cfg.color} text-white shadow-md`
-                            : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300 active:bg-gray-50'
+                            : 'bg-white border-2 border-gray-200 text-gray-600 hover:border-gray-300 active:bg-gray-50'
                         }`}
-                        style={{ minHeight: 56 }}
+                        style={{ minHeight: 52 }}
                       >
                         <span className="text-lg">{cfg.icon}</span>
-                        <span className="text-xs mt-0.5">{cfg.label}</span>
+                        <span className="text-sm font-medium">{cfg.label}</span>
                       </button>
                     ))}
                   </div>
