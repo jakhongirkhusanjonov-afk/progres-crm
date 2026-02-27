@@ -698,7 +698,7 @@ export default function TeacherProfilePage({
 
         {/* Statistika */}
         <Row gutter={[16, 16]} className="mb-6">
-          <Col xs={12} sm={6}>
+          <Col xs={24} sm={8}>
             <Card>
               <Statistic
                 title="Guruhlar"
@@ -707,7 +707,7 @@ export default function TeacherProfilePage({
               />
             </Card>
           </Col>
-          <Col xs={12} sm={6}>
+          <Col xs={24} sm={8}>
             <Card>
               <Statistic
                 title="Bu oydagi darslar"
@@ -716,16 +716,7 @@ export default function TeacherProfilePage({
               />
             </Card>
           </Col>
-          <Col xs={12} sm={6}>
-            <Card>
-              <Statistic
-                title="Fanlar soni"
-                value={teacher.teacherCourses.length}
-                prefix={<BookOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
+          <Col xs={24} sm={8}>
             <Card>
               <Statistic
                 title="Taxminiy maosh"
