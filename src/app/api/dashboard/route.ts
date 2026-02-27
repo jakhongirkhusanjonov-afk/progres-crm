@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { withAuth } from '@/lib/api-middleware'
+import { withAuth, getUser } from '@/lib/api-middleware'
 import dayjs from 'dayjs'
 
 // Dashboard statistikalarini olish
@@ -9,6 +9,11 @@ export const GET = withAuth(async (request: NextRequest) => {
     const now = dayjs()
     const currentMonth = now.startOf('month')
     const currentMonthEnd = now.endOf('month')
+
+    // Tizimga kirgan foydalanuvchini aniqlash
+    const currentUser = getUser(request)
+    const isTeacher = currentUser?.role === 'TEACHER'
+    const teacherId = currentUser?.teacherId
 
     // Parallel ravishda barcha ma'lumotlarni olish
     const [
@@ -43,15 +48,38 @@ export const GET = withAuth(async (request: NextRequest) => {
       allActiveGroupStudents,
       allPaymentsThisMonth,
     ] = await Promise.all([
-      // Faol talabalar
-      prisma.student.count({
-        where: { status: 'ACTIVE' }
-      }),
+      // Faol talabalar:
+      // TEACHER bo'lsa - faqat o'z guruhlaridagi faol talabalar (dublikatsiz)
+      // Admin bo'lsa - barcha faol talabalar
+      isTeacher && teacherId
+        ? prisma.student.count({
+            where: {
+              status: 'ACTIVE',
+              groupStudents: {
+                some: {
+                  status: 'ACTIVE',
+                  group: {
+                    status: 'ACTIVE',
+                    teacherId,
+                  },
+                },
+              },
+            },
+          })
+        : prisma.student.count({
+            where: { status: 'ACTIVE' },
+          }),
 
-      // Faol guruhlar
-      prisma.group.count({
-        where: { status: 'ACTIVE' }
-      }),
+      // Faol guruhlar:
+      // TEACHER bo'lsa - faqat o'z faol guruhlari
+      // Admin bo'lsa - barcha faol guruhlar
+      isTeacher && teacherId
+        ? prisma.group.count({
+            where: { status: 'ACTIVE', teacherId },
+          })
+        : prisma.group.count({
+            where: { status: 'ACTIVE' },
+          }),
 
       // Jami o'qituvchilar
       prisma.teacher.count({
@@ -98,7 +126,10 @@ export const GET = withAuth(async (request: NextRequest) => {
 
       // Guruhlar va talabalar soni
       prisma.group.findMany({
-        where: { status: 'ACTIVE' },
+        where: {
+          status: 'ACTIVE',
+          ...(isTeacher && teacherId ? { teacherId } : {}),
+        },
         select: {
           id: true,
           name: true,
@@ -138,10 +169,13 @@ export const GET = withAuth(async (request: NextRequest) => {
         }
       }),
 
-      // Bugungi darslar (scheduleDays tekshiruvi)
+      // Bugungi darslar:
+      // TEACHER bo'lsa - faqat o'z guruhlari
+      // Admin bo'lsa - barcha faol guruhlar
       prisma.group.findMany({
         where: {
-          status: 'ACTIVE'
+          status: 'ACTIVE',
+          ...(isTeacher && teacherId ? { teacherId } : {}),
         },
         select: {
           id: true,
@@ -293,3 +327,4 @@ export const GET = withAuth(async (request: NextRequest) => {
     )
   }
 })
+
