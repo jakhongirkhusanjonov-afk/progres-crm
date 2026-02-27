@@ -182,6 +182,17 @@ export default function StudentsPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        // 409 xatosi - dublikat ism/familiya
+        if (response.status === 409) {
+          message.error(data.error || "Bu ism va familiyali o'quvchi ro'yxatda mavjud")
+          form.setFields([
+            {
+              name: 'firstName',
+              errors: [data.error || "Bu ism va familiyali o'quvchi ro'yxatda mavjud"],
+            },
+          ])
+          return
+        }
         message.error(data.error || 'Xatolik yuz berdi')
         return
       }

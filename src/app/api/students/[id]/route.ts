@@ -134,18 +134,19 @@ export const PUT = withAuth(async (
       )
     }
 
-    // Telefon raqam boshqa talabada yo'qligini tekshirish
+    // Ism + Familiya kombinatsiyasi boshqa talabada yo'qligini tekshirish
     const existingStudent = await prisma.student.findFirst({
       where: {
-        phone,
+        firstName: { equals: firstName.trim(), mode: 'insensitive' },
+        lastName: { equals: lastName.trim(), mode: 'insensitive' },
         id: { not: id },
       },
     })
 
     if (existingStudent) {
       return NextResponse.json(
-        { error: 'Bu telefon raqam bilan boshqa talaba mavjud' },
-        { status: 400 }
+        { error: "Bu ism va familiyali o'quvchi ro'yxatda mavjud" },
+        { status: 409 }
       )
     }
 

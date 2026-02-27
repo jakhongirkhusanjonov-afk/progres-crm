@@ -137,6 +137,17 @@ export default function NewStudentPage() {
           message.error("Sizda bu amalni bajarish huquqi yo'q");
           return;
         }
+        // 409 xatosi - dublikat ism/familiya
+        if (response.status === 409) {
+          message.error(data.error || "Xatolik yuz berdi");
+          form.setFields([
+            {
+              name: "firstName",
+              errors: [data.error || "Bu ism va familiyali o'quvchi ro'yxatda mavjud"],
+            },
+          ]);
+          return;
+        }
         message.error(data.error || "Xatolik yuz berdi");
         return;
       }

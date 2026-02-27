@@ -169,6 +169,21 @@ export const POST = withAuth(async (request: NextRequest) => {
     // Telefon raqam unique tekshiruvi olib tashlandi
     // Bir oiladan bir nechta farzand bo'lishi mumkin (bir xil telefon)
 
+    // Ism + Familiya kombinatsiyasi yagona ekanligini tekshirish
+    const existingStudent = await prisma.student.findFirst({
+      where: {
+        firstName: { equals: firstName.trim(), mode: 'insensitive' },
+        lastName: { equals: lastName.trim(), mode: 'insensitive' },
+      },
+    })
+
+    if (existingStudent) {
+      return NextResponse.json(
+        { error: "Bu ism va familiyali o'quvchi ro'yxatda mavjud" },
+        { status: 409 }
+      )
+    }
+
     // Agar account yaratilsa, username va parolni tekshirish
     if (createAccount) {
       if (!username || !password) {
