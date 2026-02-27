@@ -436,7 +436,7 @@ export default function DashboardPage() {
           )}
 
           {/* Oxirgi faoliyat - Role ga qarab ko'rsatish */}
-          <div className={`grid grid-cols-1 md:grid-cols-2 ${userRole === 'SUPER_ADMIN' ? 'lg:grid-cols-3' : ''} gap-4`}>
+          <div className={`grid grid-cols-1 ${userRole === 'TEACHER' ? '' : 'md:grid-cols-2'} ${userRole === 'SUPER_ADMIN' ? 'lg:grid-cols-3' : ''} gap-4`}>
             {/* Bugungi darslar */}
             <Card
               title={
@@ -528,7 +528,8 @@ export default function DashboardPage() {
               </Card>
             )}
 
-            {/* Yangi talabalar */}
+            {/* Yangi talabalar - faqat Admin va Super Admin uchun */}
+            {userRole !== 'TEACHER' && (
             <Card
               title={
                 <div className="flex items-center gap-2 text-sm">
@@ -575,6 +576,7 @@ export default function DashboardPage() {
                 <Empty description="Talabalar yo'q" image={Empty.PRESENTED_IMAGE_SIMPLE} className="py-6" />
               )}
             </Card>
+            )}
           </div>
         </>
       )}
