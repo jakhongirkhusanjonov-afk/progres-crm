@@ -15,7 +15,7 @@ export default function NURMAKONLogo({
   height = 60,
   className = "",
   showText = false,
-  textClassName = "text-xl font-bold text-orange-600",
+  textClassName = "text-2xl font-extrabold tracking-tighter bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 bg-clip-text text-transparent transition-all duration-200 hover:scale-105 hover:from-blue-500 hover:via-indigo-400 hover:to-purple-500 select-none",
 }: NURMAKONLogoProps) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -28,7 +28,11 @@ export default function NURMAKONLogo({
         priority
       />
 
-      {showText && <span className={textClassName}>NURMAKON</span>}
+      {showText && (
+        <span className={textClassName} style={{ display: 'inline-block' }}>
+          NURMAKON
+        </span>
+      )}
     </div>
   );
 }

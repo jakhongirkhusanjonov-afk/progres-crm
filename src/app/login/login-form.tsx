@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveToken, saveUser } from "@/lib/auth-client";
-import NURMAKONLogo from "@/components/NURMAKONLogo";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -57,15 +56,23 @@ export default function LoginForm() {
 
   return (
     <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl">
-      {/* Logo */}
-      <div className="flex justify-center mb-2">
-        <NURMAKONLogo width={140} height={140} />
+      {/* Logotip */}
+      <div className="text-center mb-6">
+        <h1
+          className="text-4xl font-extrabold tracking-tighter bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 bg-clip-text text-transparent inline-block select-none"
+          style={{ lineHeight: 1.15 }}
+        >
+          NURMAKON
+        </h1>
+        <p className="text-gray-500 text-sm font-medium mt-1 tracking-wide">
+          Rivojlanish markazi
+        </p>
       </div>
 
       {/* Title */}
-      <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
+      <h2 className="text-xl font-semibold text-center text-gray-700 mb-6">
         Tizimga kirish
-      </h1>
+      </h2>
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         {error && (

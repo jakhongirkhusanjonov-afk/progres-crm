@@ -149,12 +149,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </button>
 
               {/* Logo */}
-              <Link href="/dashboard" className="flex items-center gap-2">
-                <NURMAKONLogo width={36} height={36} className="md:hidden" />
+              <Link href="/dashboard" className="flex items-center gap-2 py-1">
                 <NURMAKONLogo
-                  width={44}
-                  height={44}
+                  width={32}
+                  height={32}
+                  className="md:hidden"
+                  showText
+                  textClassName="text-xl font-extrabold tracking-tighter bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 bg-clip-text text-transparent transition-all duration-200 hover:scale-105 select-none"
+                />
+                <NURMAKONLogo
+                  width={40}
+                  height={40}
                   className="hidden md:flex"
+                  showText
+                  textClassName="text-2xl font-extrabold tracking-tighter bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 bg-clip-text text-transparent transition-all duration-200 hover:scale-105 select-none"
                 />
               </Link>
 
