@@ -624,17 +624,17 @@ export default function PaymentsContent() {
                       <Collapse.Panel
                         key={group.groupId}
                         header={
-                          <div className="flex justify-between items-center w-full pr-4">
-                            <div className="flex items-center gap-2">
-                              <TeamOutlined className="text-orange-500" />
-                              <span className="font-medium">{group.groupName}</span>
-                              <Tag color="blue" className="text-xs">{group.courseName}</Tag>
+                          <div className="flex flex-col xs:flex-row justify-between xs:items-center w-full gap-1 pr-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <TeamOutlined className="text-orange-500 shrink-0" />
+                              <span className="font-medium truncate">{group.groupName}</span>
+                              <Tag color="blue" className="text-xs shrink-0">{group.courseName}</Tag>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 shrink-0 pl-5 xs:pl-0">
                               <Tag color="red" className="text-xs">
                                 {group.debtorsCount} ta
                               </Tag>
-                              <span className="font-bold text-red-600">
+                              <span className="font-bold text-red-600 whitespace-nowrap">
                                 {formatPrice(group.totalDebt)}
                               </span>
                             </div>
@@ -648,13 +648,14 @@ export default function PaymentsContent() {
                             .map((debtor, index) => (
                             <div
                               key={debtor.id}
-                              className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                              className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
                             >
+                              {/* Talaba ismi va telefon */}
                               <div className="flex items-start gap-3 min-w-0 flex-1">
                                 <span className="text-gray-400 font-mono text-xs pt-1 shrink-0">
                                   {index + 1}.
                                 </span>
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <div className="font-medium text-gray-900 text-sm truncate">
                                     {debtor.student.lastName} {debtor.student.firstName}
                                   </div>
@@ -662,23 +663,30 @@ export default function PaymentsContent() {
                                     <PhoneOutlined className="text-[10px]" />
                                     {debtor.student.phone}
                                   </div>
-                                  <div className="flex flex-wrap gap-2 mt-1 text-xs">
-                                    <span className="text-gray-500">
-                                      Oylik: {formatPrice(debtor.monthlyFee)}
-                                    </span>
-                                    <span className="text-green-600">
-                                      To'langan: {formatPrice(debtor.paidAmount)}
-                                    </span>
-                                  </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <div className="text-right">
+
+                              {/* Summalar va tugma */}
+                              <div className="flex items-center justify-between sm:justify-end gap-3 pl-6 sm:pl-0">
+                                {/* Oylik va To'langan */}
+                                <div className="flex flex-col gap-0.5 text-xs">
+                                  <span className="text-gray-500">
+                                    Oylik: {formatPrice(debtor.monthlyFee)}
+                                  </span>
+                                  <span className="text-green-600">
+                                    To'langan: {formatPrice(debtor.paidAmount)}
+                                  </span>
+                                </div>
+
+                                {/* Qarz summasi */}
+                                <div className="text-right shrink-0">
                                   <div className="text-xs text-gray-500">Qarz</div>
-                                  <div className="font-bold text-red-600 text-lg">
+                                  <div className="font-bold text-red-600 text-base whitespace-nowrap">
                                     {formatPrice(debtor.debtAmount)}
                                   </div>
                                 </div>
+
+                                {/* To'lash tugmasi */}
                                 {canCreatePayment && (
                                   <Button
                                     type="primary"
@@ -688,7 +696,7 @@ export default function PaymentsContent() {
                                       e.stopPropagation()
                                       handlePayDebt(debtor)
                                     }}
-                                    className="h-9 touch-manipulation"
+                                    className="h-9 touch-manipulation shrink-0"
                                   >
                                     To'lash
                                   </Button>
