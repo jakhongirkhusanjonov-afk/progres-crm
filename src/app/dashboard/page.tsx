@@ -201,14 +201,17 @@ export default function DashboardPage() {
       color: (data?.stats.totalDebt || 0) > 0 ? 'from-amber-500 to-amber-600' : 'from-green-500 to-green-600',
       format: 'price',
       superAdminOnly: false,
+      teacherHidden: true,
       link: '/dashboard/payments?tab=qarzdorlar'
     },
   ]
 
   // Role ga qarab statistika kartalari
-  const statsCards = userRole === 'SUPER_ADMIN'
-    ? allStatsCards
-    : allStatsCards.filter(card => !card.superAdminOnly)
+  const statsCards = allStatsCards.filter(card => {
+    if (card.superAdminOnly && userRole !== 'SUPER_ADMIN') return false
+    if ((card as { teacherHidden?: boolean }).teacherHidden && userRole === 'TEACHER') return false
+    return true
+  })
 
   // Tezkor havolalar - role ga qarab filterlash
   const allQuickLinks = [
@@ -264,7 +267,7 @@ export default function DashboardPage() {
       {loading ? (
         <div className="space-y-4">
           {/* Loading skeleton for mobile */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[1, 2, 3, 4, 5, 6].map(i => (
               <Skeleton.Button key={i} active block style={{ height: 80 }} />
             ))}
@@ -277,7 +280,7 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* Statistika kartalari - ADMIN: 3 cards, SUPER_ADMIN: 6 cards */}
-          <div className={`grid grid-cols-2 md:grid-cols-3 ${userRole === 'SUPER_ADMIN' ? 'lg:grid-cols-6' : 'lg:grid-cols-3'} gap-2 md:gap-3 mb-4 md:mb-6`}>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${userRole === 'SUPER_ADMIN' ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 mb-4 md:mb-6`}>
             {statsCards.map((card, index) => (
               <div
                 key={index}
