@@ -201,10 +201,15 @@ export const GET = withAuth(async (request: NextRequest) => {
       }),
 
       // Qarzdorlik uchun - faol guruh talabalari
+      // TEACHER bo'lsa - faqat o'z guruhlaridagi talabalar
+      // Admin bo'lsa - barchasi
       prisma.groupStudent.findMany({
         where: {
           status: 'ACTIVE',
-          group: { status: 'ACTIVE' }
+          group: {
+            status: 'ACTIVE',
+            ...(isTeacher && teacherId ? { teacherId } : {}),
+          }
         },
         include: {
           group: {
@@ -215,16 +220,39 @@ export const GET = withAuth(async (request: NextRequest) => {
         }
       }),
 
-      // Bu oylik to'lovlar
-      prisma.payment.aggregate({
-        where: {
-          paymentDate: {
-            gte: currentMonth.toDate(),
-            lte: currentMonthEnd.toDate()
-          }
-        },
-        _sum: { amount: true }
-      })
+      // Bu oylik to'lovlar - qarzdorlikni hisoblash uchun
+      // TEACHER bo'lsa - faqat o'z guruhlaridagi talabalarning to'lovlari
+      // Admin bo'lsa - barchasi
+      isTeacher && teacherId
+        ? prisma.payment.aggregate({
+            where: {
+              paymentDate: {
+                gte: currentMonth.toDate(),
+                lte: currentMonthEnd.toDate()
+              },
+              student: {
+                groupStudents: {
+                  some: {
+                    status: 'ACTIVE',
+                    group: {
+                      status: 'ACTIVE',
+                      teacherId,
+                    }
+                  }
+                }
+              }
+            },
+            _sum: { amount: true }
+          })
+        : prisma.payment.aggregate({
+            where: {
+              paymentDate: {
+                gte: currentMonth.toDate(),
+                lte: currentMonthEnd.toDate()
+              }
+            },
+            _sum: { amount: true }
+          })
     ])
 
     // Bugungi kunni olish
