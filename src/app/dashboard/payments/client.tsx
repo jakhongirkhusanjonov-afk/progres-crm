@@ -531,6 +531,11 @@ export default function PaymentsContent() {
                                     {paymentMethods.find(m => m.value === payment.method)?.label || payment.method}
                                   </Tag>
                                 </div>
+                                {payment.description && (
+                                  <div className="text-sm text-gray-500 italic mt-1">
+                                    {payment.description}
+                                  </div>
+                                )}
                               </div>
                               <div className="text-right shrink-0">
                                 <div className="font-bold text-green-600 text-base">
