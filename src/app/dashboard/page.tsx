@@ -27,6 +27,8 @@ import {
   ClockCircleOutlined,
   CreditCardOutlined,
   WarningOutlined,
+  ExclamationCircleOutlined,
+  PhoneOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
@@ -44,6 +46,12 @@ import {
 import { hasPermission, isAdmin } from '@/lib/permissions'
 
 interface DashboardData {
+  consecutiveAbsentStudents: Array<{
+    studentId: string
+    studentName: string
+    phone: string
+    groupName: string
+  }>
   stats: {
     thisMonthRevenue: number
     thisMonthExpense: number
@@ -306,6 +314,133 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* ============================================================ */}
+          {/* Ketma-ket dars qoldirganlar ogohlantirish qutichasи           */}
+          {/* Faqat SUPER_ADMIN va ADMIN uchun ko'rinadi                     */}
+          {/* ============================================================ */}
+          {(userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') &&
+            data?.consecutiveAbsentStudents &&
+            data.consecutiveAbsentStudents.length > 0 && (
+              <div className="mb-4 md:mb-6">
+                <div
+                  style={{
+                    background: 'linear-gradient(135deg, #fff5f5 0%, #fff 100%)',
+                    border: '1.5px solid #fca5a5',
+                    borderRadius: 16,
+                    boxShadow: '0 2px 16px 0 rgba(239,68,68,0.08)',
+                    padding: '16px 20px',
+                  }}
+                >
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span
+                      style={{
+                        background: 'linear-gradient(135deg, #ef4444, #f97316)',
+                        borderRadius: 8,
+                        padding: '4px 8px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <ExclamationCircleOutlined style={{ color: '#fff', fontSize: 15 }} />
+                      <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>
+                        Diqqat talab etuvchi o&apos;quvchilar
+                      </span>
+                    </span>
+                    <span
+                      style={{
+                        background: '#fee2e2',
+                        color: '#b91c1c',
+                        borderRadius: 20,
+                        padding: '2px 10px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {data.consecutiveAbsentStudents.length} ta
+                    </span>
+                  </div>
+                  <p className="text-xs text-red-500 mb-3" style={{ margin: '0 0 12px 0' }}>
+                    Quyidagi o&apos;quvchilar oxirgi 2 ta darsni ketma-ket qoldirgan. Zudlik bilan bog&apos;laning!
+                  </p>
+
+                  {/* Student list */}
+                  <div
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
+                  >
+                    {data.consecutiveAbsentStudents.map((s, idx) => (
+                      <div
+                        key={`${s.studentId}-${idx}`}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid #fecaca',
+                          borderRadius: 10,
+                          padding: '10px 14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 4,
+                          boxShadow: '0 1px 4px rgba(239,68,68,0.07)',
+                          transition: 'box-shadow 0.15s',
+                        }}
+                      >
+                        {/* Name */}
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 14,
+                            color: '#1f2937',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 5,
+                          }}
+                        >
+                          <UserOutlined style={{ color: '#ef4444', fontSize: 13 }} />
+                          <span className="truncate">{s.studentName}</span>
+                        </div>
+
+                        {/* Group */}
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: '#6b7280',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 5,
+                          }}
+                        >
+                          <TeamOutlined style={{ fontSize: 11, color: '#9ca3af' }} />
+                          <span className="truncate">{s.groupName}</span>
+                        </div>
+
+                        {/* Phone - clickable */}
+                        {s.phone ? (
+                          <a
+                            href={`tel:${s.phone}`}
+                            style={{
+                              fontSize: 12,
+                              color: '#dc2626',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              textDecoration: 'none',
+                              marginTop: 2,
+                            }}
+                          >
+                            <PhoneOutlined style={{ fontSize: 11 }} />
+                            {s.phone}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#9ca3af' }}>Raqam yo&apos;q</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
           {/* Tezkor havolalar - role ga qarab */}
           {quickLinks.length > 0 && (

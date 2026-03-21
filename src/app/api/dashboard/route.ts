@@ -17,40 +17,21 @@ export const GET = withAuth(async (request: NextRequest) => {
 
     // Parallel ravishda barcha ma'lumotlarni olish
     const [
-      // Asosiy statistikalar
       activeStudents,
       activeGroups,
       totalTeachers,
       totalCourses,
-
-      // Bu oylik daromad (to'lovlar)
       thisMonthPayments,
-
-      // Bu oylik xarajat (o'qituvchi maoshi)
       thisMonthSalary,
-
-      // Oxirgi 6 oy to'lovlar
       last6MonthsPayments,
-
-      // Guruhlar statistikasi (talabalar soni)
       groupsWithStudents,
-
-      // Oxirgi 5 ta to'lov
       recentPayments,
-
-      // Oxirgi 5 ta talaba
       recentStudents,
-
-      // Bugungi darslar
       todayGroups,
-
-      // Umumiy qarzdorlik hisoblash uchun
       allActiveGroupStudents,
       allPaymentsThisMonth,
     ] = await Promise.all([
-      // Faol talabalar:
-      // TEACHER bo'lsa - faqat o'z guruhlaridagi faol talabalar (dublikatsiz)
-      // Admin bo'lsa - barcha faol talabalar
+      // Faol talabalar
       isTeacher && teacherId
         ? prisma.student.count({
             where: {
@@ -58,70 +39,45 @@ export const GET = withAuth(async (request: NextRequest) => {
               groupStudents: {
                 some: {
                   status: 'ACTIVE',
-                  group: {
-                    status: 'ACTIVE',
-                    teacherId,
-                  },
+                  group: { status: 'ACTIVE', teacherId },
                 },
               },
             },
           })
-        : prisma.student.count({
-            where: { status: 'ACTIVE' },
-          }),
+        : prisma.student.count({ where: { status: 'ACTIVE' } }),
 
-      // Faol guruhlar:
-      // TEACHER bo'lsa - faqat o'z faol guruhlari
-      // Admin bo'lsa - barcha faol guruhlar
+      // Faol guruhlar
       isTeacher && teacherId
-        ? prisma.group.count({
-            where: { status: 'ACTIVE', teacherId },
-          })
-        : prisma.group.count({
-            where: { status: 'ACTIVE' },
-          }),
+        ? prisma.group.count({ where: { status: 'ACTIVE', teacherId } })
+        : prisma.group.count({ where: { status: 'ACTIVE' } }),
 
       // Jami o'qituvchilar
-      prisma.teacher.count({
-        where: { status: 'ACTIVE' }
-      }),
+      prisma.teacher.count({ where: { status: 'ACTIVE' } }),
 
       // Jami kurslar
-      prisma.course.count({
-        where: { isActive: true }
-      }),
+      prisma.course.count({ where: { isActive: true } }),
 
       // Bu oylik to'lovlar yig'indisi
       prisma.payment.aggregate({
         where: {
-          paymentDate: {
-            gte: currentMonth.toDate(),
-            lte: currentMonthEnd.toDate()
-          }
+          paymentDate: { gte: currentMonth.toDate(), lte: currentMonthEnd.toDate() },
         },
         _sum: { amount: true },
-        _count: true
+        _count: true,
       }),
 
       // Bu oylik maosh to'lovlari
       prisma.salaryPayment.aggregate({
-        where: {
-          period: now.format('YYYY-MM')
-        },
-        _sum: { amount: true }
+        where: { period: now.format('YYYY-MM') },
+        _sum: { amount: true },
       }),
 
-      // Oxirgi 6 oy to'lovlar - raw query
+      // Oxirgi 6 oy to'lovlar
       prisma.payment.findMany({
         where: {
-          paymentDate: {
-            gte: dayjs().subtract(6, 'month').startOf('month').toDate()
-          }
+          paymentDate: { gte: dayjs().subtract(6, 'month').startOf('month').toDate() },
         },
-        select: {
-          amount: true,
-          paymentDate: true
-        }
+        select: { amount: true, paymentDate: true },
       }),
 
       // Guruhlar va talabalar soni
@@ -133,26 +89,16 @@ export const GET = withAuth(async (request: NextRequest) => {
         select: {
           id: true,
           name: true,
-          _count: {
-            select: {
-              groupStudents: {
-                where: { status: 'ACTIVE' }
-              }
-            }
-          }
+          _count: { select: { groupStudents: { where: { status: 'ACTIVE' } } } },
         },
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
       }),
 
       // Oxirgi 5 ta to'lov
       prisma.payment.findMany({
         take: 5,
         orderBy: { paymentDate: 'desc' },
-        include: {
-          student: {
-            select: { firstName: true, lastName: true }
-          }
-        }
+        include: { student: { select: { firstName: true, lastName: true } } },
       }),
 
       // Oxirgi 5 ta talaba
@@ -165,13 +111,11 @@ export const GET = withAuth(async (request: NextRequest) => {
           lastName: true,
           phone: true,
           status: true,
-          createdAt: true
-        }
+          createdAt: true,
+        },
       }),
 
-      // Bugungi darslar:
-      // TEACHER bo'lsa - faqat o'z guruhlari
-      // Admin bo'lsa - barcha faol guruhlar
+      // Bugungi darslar
       prisma.group.findMany({
         where: {
           status: 'ACTIVE',
@@ -183,91 +127,122 @@ export const GET = withAuth(async (request: NextRequest) => {
           startTime: true,
           endTime: true,
           scheduleDays: true,
-          teacher: {
-            select: { firstName: true, lastName: true }
-          },
-          course: {
-            select: { name: true }
-          },
-          _count: {
-            select: {
-              groupStudents: {
-                where: { status: 'ACTIVE' }
-              }
-            }
-          }
+          teacher: { select: { firstName: true, lastName: true } },
+          course: { select: { name: true } },
+          _count: { select: { groupStudents: { where: { status: 'ACTIVE' } } } },
         },
-        orderBy: { startTime: 'asc' }
+        orderBy: { startTime: 'asc' },
       }),
 
       // Qarzdorlik uchun - faol guruh talabalari
-      // TEACHER bo'lsa - faqat o'z guruhlaridagi talabalar
-      // Admin bo'lsa - barchasi
       prisma.groupStudent.findMany({
         where: {
           status: 'ACTIVE',
           group: {
             status: 'ACTIVE',
             ...(isTeacher && teacherId ? { teacherId } : {}),
-          }
+          },
         },
-        include: {
-          group: {
-            include: {
-              course: true
-            }
-          }
-        }
+        include: { group: { include: { course: true } } },
       }),
 
       // Bu oylik to'lovlar - qarzdorlikni hisoblash uchun
-      // TEACHER bo'lsa - faqat o'z guruhlaridagi talabalarning to'lovlari
-      // Admin bo'lsa - barchasi
       isTeacher && teacherId
         ? prisma.payment.aggregate({
             where: {
-              paymentDate: {
-                gte: currentMonth.toDate(),
-                lte: currentMonthEnd.toDate()
-              },
+              paymentDate: { gte: currentMonth.toDate(), lte: currentMonthEnd.toDate() },
               student: {
                 groupStudents: {
-                  some: {
-                    status: 'ACTIVE',
-                    group: {
-                      status: 'ACTIVE',
-                      teacherId,
-                    }
-                  }
-                }
-              }
+                  some: { status: 'ACTIVE', group: { status: 'ACTIVE', teacherId } },
+                },
+              },
             },
-            _sum: { amount: true }
+            _sum: { amount: true },
           })
         : prisma.payment.aggregate({
             where: {
-              paymentDate: {
-                gte: currentMonth.toDate(),
-                lte: currentMonthEnd.toDate()
-              }
+              paymentDate: { gte: currentMonth.toDate(), lte: currentMonthEnd.toDate() },
             },
-            _sum: { amount: true }
-          })
+            _sum: { amount: true },
+          }),
     ])
 
-    // Bugungi kunni olish
-    const today = now.day()
-
     // Bugungi darslarni filterlash
-    const todayLessons = todayGroups.filter(g => {
+    const today = now.day()
+    const todayLessons = todayGroups.filter((g) => {
       if (!g.scheduleDays) return false
-      const days = g.scheduleDays.split(',').map(d => parseInt(d.trim()))
+      const days = g.scheduleDays.split(',').map((d) => parseInt(d.trim()))
       return days.includes(today)
     })
 
+    // ====================================================
+    // Ketma-ket 2 ta dars qoldirganlarni aniqlash
+    // Barcha faol guruh talabalari uchun barcha davomatlarni olib,
+    // JS da guruhlash va oxirgi 2 ta statusni tekshiramiz.
+    // ====================================================
+    // Build the set of active (studentId, groupId) pairs for filtering
+    const activeStudentGroupSet = new Set(
+      allActiveGroupStudents.map((gs) => `${gs.studentId}_${gs.groupId}`)
+    )
+
+    const allAttFull = await prisma.attendance.findMany({
+      where: {
+        group: { status: 'ACTIVE' },
+        student: { status: 'ACTIVE' },
+      },
+      select: {
+        studentId: true,
+        groupId: true,
+        date: true,
+        status: true,
+        student: {
+          select: { firstName: true, lastName: true, phone: true, parentPhone: true },
+        },
+        group: { select: { name: true } },
+      },
+      orderBy: { date: 'desc' },
+    })
+
+    // (studentId, groupId) juftligi bo'yicha guruhlash (faqat faol enrollment lar)
+    const attByPair = new Map<string, typeof allAttFull>()
+    for (const att of allAttFull) {
+      const key = `${att.studentId}_${att.groupId}`
+      // Faqat faol GroupStudent yozuvlari uchun
+      if (!activeStudentGroupSet.has(key)) continue
+      if (!attByPair.has(key)) attByPair.set(key, [])
+      attByPair.get(key)!.push(att)
+    }
+
+    // Oxirgi 2 ta davomati ham ABSENT bo'lgan talabalarni topish
+    const consecutiveAbsentStudents: Array<{
+      studentId: string
+      studentName: string
+      phone: string
+      groupName: string
+    }> = []
+    const seenPairs = new Set<string>()
+
+    for (const [key, atts] of attByPair) {
+      if (
+        atts.length >= 2 &&
+        atts[0].status === 'ABSENT' &&
+        atts[1].status === 'ABSENT' &&
+        !seenPairs.has(key)
+      ) {
+        seenPairs.add(key)
+        const info = atts[0]
+        consecutiveAbsentStudents.push({
+          studentId: info.studentId,
+          studentName: `${info.student.firstName} ${info.student.lastName}`,
+          phone: info.student.phone || info.student.parentPhone || '',
+          groupName: info.group.name,
+        })
+      }
+    }
+
     // Qarzdorlik hisoblash
     let expectedTotal = 0
-    allActiveGroupStudents.forEach(gs => {
+    allActiveGroupStudents.forEach((gs) => {
       const price = gs.price || gs.group.price || gs.group.course.price
       expectedTotal += Number(price) || 0
     })
@@ -278,26 +253,18 @@ export const GET = withAuth(async (request: NextRequest) => {
     const months: { month: string; label: string; total: number }[] = []
     for (let i = 5; i >= 0; i--) {
       const monthDate = dayjs().subtract(i, 'month')
-      months.push({
-        month: monthDate.format('YYYY-MM'),
-        label: monthDate.format('MMM'),
-        total: 0
-      })
+      months.push({ month: monthDate.format('YYYY-MM'), label: monthDate.format('MMM'), total: 0 })
     }
-
-    // To'lovlarni months massiviga qo'shish
     last6MonthsPayments.forEach((p) => {
       const paymentMonth = dayjs(p.paymentDate).format('YYYY-MM')
-      const monthIndex = months.findIndex(m => m.month === paymentMonth)
-      if (monthIndex !== -1) {
-        months[monthIndex].total += Number(p.amount) || 0
-      }
+      const monthIndex = months.findIndex((m) => m.month === paymentMonth)
+      if (monthIndex !== -1) months[monthIndex].total += Number(p.amount) || 0
     })
 
     // Guruhlar statistikasini formatlash
-    const groupsStats = groupsWithStudents.map(g => ({
+    const groupsStats = groupsWithStudents.map((g) => ({
       name: g.name,
-      students: g._count.groupStudents
+      students: g._count.groupStudents,
     }))
 
     // Sof foyda
@@ -306,6 +273,9 @@ export const GET = withAuth(async (request: NextRequest) => {
     const netProfit = thisMonthRevenue - thisMonthExpense
 
     return NextResponse.json({
+      // Ketma-ket dars qoldirganlar (Admin/SuperAdmin uchun)
+      consecutiveAbsentStudents,
+
       // Statistika kartalari
       stats: {
         thisMonthRevenue,
@@ -316,7 +286,7 @@ export const GET = withAuth(async (request: NextRequest) => {
         totalDebt,
         totalTeachers,
         totalCourses,
-        paymentsCount: thisMonthPayments._count
+        paymentsCount: thisMonthPayments._count,
       },
 
       // To'lovlar grafigi (oxirgi 6 oy)
@@ -327,32 +297,27 @@ export const GET = withAuth(async (request: NextRequest) => {
 
       // Oxirgi faoliyat
       recentActivity: {
-        payments: recentPayments.map(p => ({
+        payments: recentPayments.map((p) => ({
           id: p.id,
           amount: Number(p.amount),
           date: p.paymentDate,
           studentName: `${p.student.firstName} ${p.student.lastName}`,
           method: p.method,
-          type: p.paymentType
+          type: p.paymentType,
         })),
         students: recentStudents,
-        todayLessons: todayLessons.map(g => ({
+        todayLessons: todayLessons.map((g) => ({
           id: g.id,
           name: g.name,
           time: `${g.startTime} - ${g.endTime}`,
           teacher: `${g.teacher.firstName} ${g.teacher.lastName}`,
           course: g.course.name,
-          studentsCount: g._count.groupStudents
-        }))
-      }
+          studentsCount: g._count.groupStudents,
+        })),
+      },
     })
-
   } catch (error) {
     console.error('Dashboard API error:', error)
-    return NextResponse.json(
-      { error: 'Server xatosi' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Server xatosi' }, { status: 500 })
   }
 })
-
