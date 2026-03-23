@@ -1,5 +1,7 @@
 "use client";
 
+import { Check, X } from "lucide-react";
+
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/lib/auth-client";
@@ -172,6 +174,22 @@ interface StudentRankings {
   all: StudentRanking[];
 }
 
+interface PaymentChecklistItem {
+  index: number;
+  studentId: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  hasPaid: boolean;
+}
+
+interface PaymentChecklist {
+  checklist: PaymentChecklistItem[];
+  currentMonth: number;
+  currentYear: number;
+  currentMonthName: string;
+}
+
 export default function GroupProfilePage({
   params,
 }: {
@@ -198,6 +216,9 @@ export default function GroupProfilePage({
     useState<AttendanceStats | null>(null);
   const [studentRankings, setStudentRankings] =
     useState<StudentRankings | null>(null);
+  const [paymentChecklist, setPaymentChecklist] =
+    useState<PaymentChecklist | null>(null);
+  const [loadingChecklist, setLoadingChecklist] = useState(false);
 
   // Guruh ma'lumotlarini yuklash
   const fetchGroup = async () => {
@@ -285,10 +306,30 @@ export default function GroupProfilePage({
     }
   };
 
+  // To'lov checklist ma'lumotlarini yuklash
+  const fetchPaymentChecklist = async () => {
+    setLoadingChecklist(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/groups/${id}/payment-checklist`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentChecklist(data);
+      }
+    } catch (error) {
+      console.error("Error fetching payment checklist:", error);
+    } finally {
+      setLoadingChecklist(false);
+    }
+  };
+
   useEffect(() => {
     fetchGroup();
     fetchAllStudents();
     fetchAttendanceSessions();
+    fetchPaymentChecklist();
   }, [id]);
 
   // Talabalarni qidirish
@@ -1071,6 +1112,7 @@ export default function GroupProfilePage({
                 ),
                 children: (
                   <div>
+                    {/* Joriy oy statistikasi */}
                     <Row gutter={[16, 16]} className="mb-4">
                       <Col xs={12}>
                         <Card className="text-center">
@@ -1091,8 +1133,91 @@ export default function GroupProfilePage({
                         </Card>
                       </Col>
                     </Row>
-                    <div className="text-center text-gray-500">
-                      Batafsil to'lovlar ro'yxati tez orada qo'shiladi
+
+                    {/* Joriy oy to'lovlari chek-listi */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-base font-semibold text-gray-800">
+                          Joriy oy to'lovlari chek-listi
+                          {paymentChecklist && (
+                            <span className="ml-2 text-sm font-normal text-gray-500">
+                              ({paymentChecklist.currentMonthName}{" "}
+                              {paymentChecklist.currentYear})
+                            </span>
+                          )}
+                        </h3>
+                        {paymentChecklist && (
+                          <div className="text-sm text-gray-500">
+                            <span className="text-green-600 font-medium">
+                              {paymentChecklist.checklist.filter((s) => s.hasPaid).length}
+                            </span>
+                            /{paymentChecklist.checklist.length} to'lagan
+                          </div>
+                        )}
+                      </div>
+
+                      {loadingChecklist ? (
+                        <div className="flex justify-center py-8">
+                          <Spin />
+                        </div>
+                      ) : !paymentChecklist ||
+                        paymentChecklist.checklist.length === 0 ? (
+                        <Empty
+                          description="Bu guruhda hali o'quvchilar yo'q"
+                          image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-200 bg-gray-50">
+                                <th className="text-left py-2 px-3 font-medium text-gray-600 w-12">
+                                  T/r
+                                </th>
+                                <th className="text-left py-2 px-3 font-medium text-gray-600">
+                                  O'quvchi F.I.SH.
+                                </th>
+                                <th className="text-center py-2 px-3 font-medium text-gray-600 w-36">
+                                  Joriy oy holati
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {paymentChecklist.checklist.map((item) => (
+                                <tr
+                                  key={item.studentId}
+                                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                                >
+                                  <td className="py-2 px-3 text-gray-500">
+                                    {item.index}
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <span
+                                      className="font-medium text-gray-800 cursor-pointer hover:text-indigo-600"
+                                      onClick={() =>
+                                        router.push(
+                                          `/dashboard/students/${item.studentId}`,
+                                        )
+                                      }
+                                    >
+                                      {item.lastName} {item.firstName}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <div className="flex justify-center">
+                                      {item.hasPaid ? (
+                                        <Check className="text-green-600 h-5 w-5" />
+                                      ) : (
+                                        <X className="text-red-600 h-5 w-5" />
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ),
