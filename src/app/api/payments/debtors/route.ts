@@ -2,16 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-middleware";
 
+// Oylar sonini hisoblash yordamchi funksiyasi
+// startDate dan hozirgi oygacha (shu oy ham kiradi)
+function monthsElapsed(startDate: Date, now: Date): number {
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth(); // 0-indexed
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth(); // 0-indexed
+  const months = (nowYear - startYear) * 12 + (nowMonth - startMonth) + 1;
+  return Math.max(1, months); // Kamida 1 oy
+}
+
 // GET - Qarzdorlar ro'yxati
-// Formula: Qarzdorlik = Individual narx - To'langan summa
-// Yangi talaba qo'shilganda DARHOL qarz paydo bo'ladi
+// Formula: Qarzdorlik = (Oylar soni × Guruh narxi) - (Shu guruh uchun to'langan summa)
+// Oylar soni = enrollDate (yoki group.startDate, qaysi kechroq bo'lsa) dan bugungi oygacha
 export const GET = withAuth(async (request: NextRequest) => {
   try {
-    console.log("\n" + "=".repeat(60));
-    console.log("🔍 DEBTORS API - DEBUG START");
-    console.log("=".repeat(60));
+    const now = new Date();
 
-    // Aktiv talabalar va ularning guruhlari
+    // Aktiv guruh-talaba juftlarini olamiz
     const activeGroupStudents = await prisma.groupStudent.findMany({
       where: {
         status: "ACTIVE",
@@ -20,65 +29,31 @@ export const GET = withAuth(async (request: NextRequest) => {
       },
       include: {
         student: {
-          include: {
-            payments: {
-              where: { paymentType: "TUITION" },
-              orderBy: { paymentDate: "desc" },
-            },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
           },
         },
         group: {
           include: {
             course: true,
+            // Faqat shu guruhga tegishli TUITION to'lovlar
+            payments: {
+              where: { paymentType: "TUITION" },
+              select: {
+                id: true,
+                studentId: true,
+                amount: true,
+                paymentDate: true,
+              },
+            },
           },
         },
       },
     });
 
-    console.log(`\n📊 TOPILGAN AKTIV GURUH-TALABALAR: ${activeGroupStudents.length} ta`);
-    console.log("-".repeat(60));
-
-    // Har bir guruh-talaba uchun batafsil log
-    activeGroupStudents.forEach((gs, index) => {
-      const individualPrice = gs.price ? Number(gs.price) : null;
-      const groupPrice = gs.group.price ? Number(gs.group.price) : null;
-      const coursePrice = Number(gs.group.course.price);
-      const finalPrice = individualPrice || groupPrice || coursePrice || 0;
-
-      const totalPayments = gs.student.payments.reduce(
-        (sum, p) => sum + Number(p.amount), 0
-      );
-
-      console.log(`\n[${index + 1}] ${gs.student.lastName} ${gs.student.firstName}`);
-      console.log(`    📱 Tel: ${gs.student.phone}`);
-      console.log(`    🎓 Guruh: ${gs.group.name} (${gs.group.course.name})`);
-      console.log(`    💰 NARXLAR:`);
-      console.log(`       - Individual (GroupStudent.price): ${individualPrice !== null ? individualPrice.toLocaleString() : 'NULL'}`);
-      console.log(`       - Guruh (Group.price): ${groupPrice !== null ? groupPrice.toLocaleString() : 'NULL'}`);
-      console.log(`       - Kurs (Course.price): ${coursePrice.toLocaleString()}`);
-      console.log(`       ➡️  FINAL NARX: ${finalPrice.toLocaleString()} so'm`);
-      console.log(`    💳 TO'LOVLAR: ${gs.student.payments.length} ta`);
-      gs.student.payments.forEach((p, i) => {
-        console.log(`       [${i + 1}] ${Number(p.amount).toLocaleString()} so'm (${p.paymentDate.toISOString().split('T')[0]})`);
-      });
-      console.log(`       ➡️  JAMI TO'LANGAN: ${totalPayments.toLocaleString()} so'm`);
-      console.log(`    📉 QARZDORLIK: ${finalPrice} - ${totalPayments} = ${finalPrice - totalPayments} so'm`);
-    });
-
-    // Talabalar bo'yicha guruhlash
-    const studentGroups = new Map<string, typeof activeGroupStudents>();
-
-    activeGroupStudents.forEach((gs) => {
-      const studentId = gs.studentId;
-      if (!studentGroups.has(studentId)) {
-        studentGroups.set(studentId, []);
-      }
-      studentGroups.get(studentId)!.push(gs);
-    });
-
-    console.log(`\n📋 UNIQUE TALABALAR: ${studentGroups.size} ta`);
-
-    // Qarzdorlarni hisoblash
     const debtors: {
       id: string;
       student: {
@@ -93,83 +68,80 @@ export const GET = withAuth(async (request: NextRequest) => {
         course: { name: string };
       };
       monthlyFee: number;
+      monthsElapsed: number;
+      expectedTotal: number;
       paidAmount: number;
       debtAmount: number;
       lastPaymentDate: string | null;
     }[] = [];
 
-    console.log("\n" + "-".repeat(60));
-    console.log("🧮 QARZDORLIK HISOBLASH:");
-    console.log("-".repeat(60));
+    for (const gs of activeGroupStudents) {
+      const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
+      if (monthlyFee === 0) continue;
 
-    studentGroups.forEach((groups, studentId) => {
-      const student = groups[0].student;
-      const studentName = `${student.lastName} ${student.firstName}`;
+      // Boshlanish nuqtasi: enrollDate vs group.startDate — qaysi keyinroq bo'lsa
+      const enrollDate = new Date(gs.enrollDate);
+      const groupStartDate = new Date(gs.group.startDate);
+      const startPoint = enrollDate > groupStartDate ? enrollDate : groupStartDate;
 
-      // Jami narx
-      let totalFeeForStudent = 0;
-      groups.forEach((gs) => {
-        const fee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
-        totalFeeForStudent += fee;
-      });
+      // Oylar soni (shu oy ham kiradi)
+      const months = monthsElapsed(startPoint, now);
 
-      // Jami to'lov
-      const totalPaid = student.payments.reduce(
+      // Kutilayotgan jami summa
+      const expectedTotal = months * monthlyFee;
+
+      // Faqat shu guruhga va shu talabaga tegishli to'lovlar
+      const groupPaymentsForStudent = gs.group.payments.filter(
+        (p) => p.studentId === gs.studentId
+      );
+
+      const paidAmount = groupPaymentsForStudent.reduce(
         (sum, p) => sum + Number(p.amount),
         0
       );
 
-      const totalDebtForStudent = totalFeeForStudent - totalPaid;
+      const debtAmount = expectedTotal - paidAmount;
 
-      console.log(`\n👤 ${studentName}:`);
-      console.log(`   Guruhlar soni: ${groups.length}`);
-      console.log(`   Jami narx: ${totalFeeForStudent.toLocaleString()} so'm`);
-      console.log(`   Jami to'langan: ${totalPaid.toLocaleString()} so'm`);
-      console.log(`   Umumiy qarz: ${totalDebtForStudent.toLocaleString()} so'm`);
+      if (debtAmount > 0) {
+        // Oxirgi to'lov sanasini topish (shu guruh uchun)
+        const sortedPayments = groupPaymentsForStudent
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(b.paymentDate).getTime() -
+              new Date(a.paymentDate).getTime()
+          );
 
-      if (totalDebtForStudent > 0) {
-        console.log(`   ✅ QARZDOR - ro'yxatga qo'shiladi`);
-
-        groups.forEach((gs) => {
-          const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
-          const debtRatio = groups.length === 1 ? 1 : monthlyFee / totalFeeForStudent;
-          const paidForThisGroup = Math.round(totalPaid * debtRatio);
-          const debtForThisGroup = Math.max(0, monthlyFee - paidForThisGroup);
-
-          console.log(`      - ${gs.group.name}: narx=${monthlyFee}, to'langan=${paidForThisGroup}, qarz=${debtForThisGroup}`);
-
-          if (debtForThisGroup > 0) {
-            debtors.push({
-              id: gs.id,
-              student: {
-                id: student.id,
-                firstName: student.firstName,
-                lastName: student.lastName,
-                phone: student.phone,
-              },
-              group: {
-                id: gs.group.id,
-                name: gs.group.name,
-                course: { name: gs.group.course.name },
-              },
-              monthlyFee,
-              paidAmount: paidForThisGroup,
-              debtAmount: debtForThisGroup,
-              lastPaymentDate: student.payments[0]?.paymentDate.toISOString() || null,
-            });
-          }
+        debtors.push({
+          id: gs.id,
+          student: {
+            id: gs.student.id,
+            firstName: gs.student.firstName,
+            lastName: gs.student.lastName,
+            phone: gs.student.phone,
+          },
+          group: {
+            id: gs.group.id,
+            name: gs.group.name,
+            course: { name: gs.group.course.name },
+          },
+          monthlyFee,
+          monthsElapsed: months,
+          expectedTotal,
+          paidAmount,
+          debtAmount,
+          lastPaymentDate:
+            sortedPayments[0]?.paymentDate.toISOString() || null,
         });
-      } else {
-        console.log(`   ❌ QARZ YO'Q - o'tkazib yuboriladi`);
       }
-    });
+    }
 
     debtors.sort((a, b) => b.debtAmount - a.debtAmount);
     const totalDebt = debtors.reduce((sum, d) => sum + d.debtAmount, 0);
 
-    console.log("\n" + "=".repeat(60));
-    console.log(`📊 NATIJA: ${debtors.length} ta qarzdor, jami qarz: ${totalDebt.toLocaleString()} so'm`);
-    console.log("=".repeat(60) + "\n");
+    console.log(
+      `GET /api/payments/debtors - Qarzdorlar: ${debtors.length}, Jami qarz: ${totalDebt}`
+    );
 
     return NextResponse.json({
       debtors,

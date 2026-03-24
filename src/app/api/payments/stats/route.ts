@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-middleware";
 
+// Oylar sonini hisoblash
+function monthsElapsed(startDate: Date, now: Date): number {
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth();
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth();
+  const months = (nowYear - startYear) * 12 + (nowMonth - startMonth) + 1;
+  return Math.max(1, months);
+}
+
 // GET - To'lovlar statistikasi
 export const GET = withAuth(async (request: NextRequest) => {
   try {
@@ -9,35 +19,26 @@ export const GET = withAuth(async (request: NextRequest) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Parallel so'rovlar
     const [
       todayPayments,
       monthPayments,
       totalPayments,
       activeGroupStudents,
     ] = await Promise.all([
-      // Bugungi to'lovlar
       prisma.payment.aggregate({
-        where: {
-          paymentDate: { gte: todayStart },
-        },
+        where: { paymentDate: { gte: todayStart } },
         _sum: { amount: true },
         _count: true,
       }),
-      // Bu oylik to'lovlar
       prisma.payment.aggregate({
-        where: {
-          paymentDate: { gte: monthStart },
-        },
+        where: { paymentDate: { gte: monthStart } },
         _sum: { amount: true },
         _count: true,
       }),
-      // Jami to'lovlar
       prisma.payment.aggregate({
         _sum: { amount: true },
         _count: true,
       }),
-      // Aktiv talabalar va ularning guruhlari (qarzdorlik hisoblash uchun)
       prisma.groupStudent.findMany({
         where: {
           status: "ACTIVE",
@@ -45,58 +46,47 @@ export const GET = withAuth(async (request: NextRequest) => {
           group: { status: "ACTIVE" },
         },
         include: {
-          student: {
-            include: {
-              // Barcha to'lovlarni olish (oy bo'yicha emas!)
-              payments: true,
-            },
-          },
+          student: { select: { id: true } },
           group: {
             include: {
               course: true,
+              payments: {
+                where: { paymentType: "TUITION" },
+                select: { studentId: true, amount: true },
+              },
             },
           },
         },
       }),
     ]);
 
-    // Talabalar bo'yicha guruhlash (bir talaba bir nechta guruhda bo'lishi mumkin)
-    const studentGroups = new Map<string, typeof activeGroupStudents>();
-
-    activeGroupStudents.forEach((gs) => {
-      const studentId = gs.studentId;
-      if (!studentGroups.has(studentId)) {
-        studentGroups.set(studentId, []);
-      }
-      studentGroups.get(studentId)!.push(gs);
-    });
-
-    // Qarzdorlik hisoblash: Narx - Jami to'langan
+    // Har bir (guruh, talaba) jufti uchun oyma-oy yig'ilib boruvchi qarz
     let totalDebt = 0;
-    let debtorCount = 0;
+    const debtorSet = new Set<string>(); // unique qarzdorlar
 
-    studentGroups.forEach((groups) => {
-      // Talabaning barcha guruhlari bo'yicha jami narx
-      let totalFeeForStudent = 0;
-      groups.forEach((gs) => {
-        const fee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
-        totalFeeForStudent += fee;
-      });
+    for (const gs of activeGroupStudents) {
+      const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
+      if (monthlyFee === 0) continue;
 
-      // Talabaning jami to'lovlari (faqat TUITION)
-      const student = groups[0].student;
-      const totalPaid = student.payments
-        .filter(p => p.paymentType === "TUITION")
+      const enrollDate = new Date(gs.enrollDate);
+      const groupStartDate = new Date(gs.group.startDate);
+      const startPoint = enrollDate > groupStartDate ? enrollDate : groupStartDate;
+
+      const months = monthsElapsed(startPoint, now);
+      const expectedTotal = months * monthlyFee;
+
+      const paidAmount = gs.group.payments
+        .filter((p) => p.studentId === gs.studentId)
         .reduce((sum, p) => sum + Number(p.amount), 0);
 
-      // Talabaning umumiy qarzi
-      const debtAmount = totalFeeForStudent - totalPaid;
-
-      if (debtAmount > 0) {
-        totalDebt += debtAmount;
-        debtorCount++;
+      const debt = expectedTotal - paidAmount;
+      if (debt > 0) {
+        totalDebt += debt;
+        debtorSet.add(gs.studentId);
       }
-    });
+    }
+
+    const debtorCount = debtorSet.size;
 
     console.log(`GET /api/payments/stats - Qarzdorlar: ${debtorCount}, Jami qarz: ${totalDebt}`);
 

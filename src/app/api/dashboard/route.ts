@@ -3,6 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { withAuth, getUser } from '@/lib/api-middleware'
 import dayjs from 'dayjs'
 
+// Oylar sonini hisoblash: startDate dan now gacha (shu oy ham kiradi)
+function monthsElapsed(startDate: Date, now: Date): number {
+  const months =
+    (now.getFullYear() - startDate.getFullYear()) * 12 +
+    (now.getMonth() - startDate.getMonth()) +
+    1
+  return Math.max(1, months)
+}
+
 // Dashboard statistikalarini olish
 export const GET = withAuth(async (request: NextRequest) => {
   try {
@@ -29,7 +38,6 @@ export const GET = withAuth(async (request: NextRequest) => {
       recentStudents,
       todayGroups,
       allActiveGroupStudents,
-      allPaymentsThisMonth,
     ] = await Promise.all([
       // Faol talabalar
       isTeacher && teacherId
@@ -134,7 +142,7 @@ export const GET = withAuth(async (request: NextRequest) => {
         orderBy: { startTime: 'asc' },
       }),
 
-      // Qarzdorlik uchun - faol guruh talabalari
+      // Qarzdorlik uchun - faol guruh talabalari (guruhga tegishli to'lovlar bilan)
       prisma.groupStudent.findMany({
         where: {
           status: 'ACTIVE',
@@ -143,28 +151,19 @@ export const GET = withAuth(async (request: NextRequest) => {
             ...(isTeacher && teacherId ? { teacherId } : {}),
           },
         },
-        include: { group: { include: { course: true } } },
-      }),
-
-      // Bu oylik to'lovlar - qarzdorlikni hisoblash uchun
-      isTeacher && teacherId
-        ? prisma.payment.aggregate({
-            where: {
-              paymentDate: { gte: currentMonth.toDate(), lte: currentMonthEnd.toDate() },
-              student: {
-                groupStudents: {
-                  some: { status: 'ACTIVE', group: { status: 'ACTIVE', teacherId } },
-                },
+        include: {
+          group: {
+            include: {
+              course: true,
+              // Faqat shu guruhga tegishli TUITION to'lovlar
+              payments: {
+                where: { paymentType: 'TUITION' },
+                select: { studentId: true, amount: true },
               },
             },
-            _sum: { amount: true },
-          })
-        : prisma.payment.aggregate({
-            where: {
-              paymentDate: { gte: currentMonth.toDate(), lte: currentMonthEnd.toDate() },
-            },
-            _sum: { amount: true },
-          }),
+          },
+        },
+      }),
     ])
 
     // Bugungi darslarni filterlash
@@ -240,14 +239,24 @@ export const GET = withAuth(async (request: NextRequest) => {
       }
     }
 
-    // Qarzdorlik hisoblash
-    let expectedTotal = 0
-    allActiveGroupStudents.forEach((gs) => {
-      const price = gs.price || gs.group.price || gs.group.course.price
-      expectedTotal += Number(price) || 0
-    })
-    const paidTotal = Number(allPaymentsThisMonth._sum.amount) || 0
-    const totalDebt = Math.max(0, expectedTotal - paidTotal)
+    // Qarzdorlik hisoblash: oyma-oy yig'ilib boruvchi formula
+    // Qarz = (Oylar soni × Guruh narxi) - (Shu guruh uchun to'langan summa)
+    let totalDebt = 0
+    const nowDate = now.toDate()
+    for (const gs of allActiveGroupStudents) {
+      const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0)
+      if (monthlyFee === 0) continue
+      const enrollDate = new Date(gs.enrollDate)
+      const groupStartDate = new Date(gs.group.startDate)
+      const startPoint = enrollDate > groupStartDate ? enrollDate : groupStartDate
+      const months = monthsElapsed(startPoint, nowDate)
+      const expectedTotal = months * monthlyFee
+      const paidForThisGroup = gs.group.payments
+        .filter((p) => p.studentId === gs.studentId)
+        .reduce((sum, p) => sum + Number(p.amount), 0)
+      const debt = expectedTotal - paidForThisGroup
+      if (debt > 0) totalDebt += debt
+    }
 
     // Oxirgi 6 oy grafiklarini formatlash
     const months: { month: string; label: string; total: number }[] = []
