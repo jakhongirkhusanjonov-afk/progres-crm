@@ -139,6 +139,8 @@ export default function PaymentsContent() {
   const [debtors, setDebtors] = useState<Debtor[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [paidMonths, setPaidMonths] = useState<{ month: string; year: number | null }[]>([])
+  const [paidMonthsLoading, setPaidMonthsLoading] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [statsLoading, setStatsLoading] = useState(false)
@@ -305,29 +307,74 @@ export default function PaymentsContent() {
     form.resetFields()
     setSelectedStudent(null)
     setStudents([])
+    setPaidMonths([])
     setPaymentSuccess(false)
     setModalVisible(true)
+  }
+
+  // To'langan oylarni yuklash va birinchi bo'sh oyni avtomatik tanlash
+  const fetchPaidMonths = async (studentId: string, groupId: string, year: number) => {
+    setPaidMonthsLoading(true)
+    try {
+      const token = getToken()
+      if (!token) return
+      const params = new URLSearchParams({ studentId, groupId, year: String(year) })
+      const res = await fetch(`/api/payments/paid-months?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      const paid: { month: string; year: number | null }[] = data.paidMonths || []
+      setPaidMonths(paid)
+
+      // Birinchi to'lanmagan oyni avtomatik tanlash
+      const paidInYear = paid
+        .filter((p) => p.year === year || p.year === null)
+        .map((p) => p.month)
+      const firstUnpaid = MONTHS.find((m) => !paidInYear.includes(m))
+      form.setFieldsValue({ forMonth: firstUnpaid || CURRENT_MONTH })
+    } catch (e) {
+      console.error('[PaidMonths] Xatolik:', e)
+    } finally {
+      setPaidMonthsLoading(false)
+    }
   }
 
   const handleStudentSelect = (studentId: string) => {
     const student = students.find((s) => s.id === studentId)
     setSelectedStudent(student || null)
+    setPaidMonths([])
 
     if (student?.groupStudents && student.groupStudents.length > 0) {
       const firstGroup = student.groupStudents[0]
       const price = Number(firstGroup.price || firstGroup.group.price || firstGroup.group.course.price || 0)
+      const year = form.getFieldValue('forYear') || CURRENT_YEAR
       form.setFieldsValue({
         groupId: firstGroup.group.id,
         amount: price,
-        forMonth: form.getFieldValue('forMonth') || CURRENT_MONTH,
-        forYear: form.getFieldValue('forYear') || CURRENT_YEAR,
+        forYear: year,
       })
+      fetchPaidMonths(studentId, firstGroup.group.id, year)
     } else {
       form.setFieldsValue({
-        forMonth: form.getFieldValue('forMonth') || CURRENT_MONTH,
-        forYear: form.getFieldValue('forYear') || CURRENT_YEAR,
+        forMonth: CURRENT_MONTH,
+        forYear: CURRENT_YEAR,
       })
     }
+  }
+
+  // Guruh o'zgarganda paidMonths yangilansin
+  const handleGroupChange = (groupId: string) => {
+    const studentId = form.getFieldValue('studentId')
+    const year = form.getFieldValue('forYear') || CURRENT_YEAR
+    if (studentId && groupId) fetchPaidMonths(studentId, groupId, year)
+  }
+
+  // Yil o'zgarganda paidMonths yangilansin
+  const handleYearChange = (year: number) => {
+    const studentId = form.getFieldValue('studentId')
+    const groupId = form.getFieldValue('groupId')
+    if (studentId && groupId) fetchPaidMonths(studentId, groupId, year)
   }
 
   const handleSubmit = async (values: any) => {
@@ -342,7 +389,7 @@ export default function PaymentsContent() {
         body: JSON.stringify({
           studentId: values.studentId,
           amount: values.amount,
-          paymentType: values.paymentType,
+          paymentType: 'TUITION',
           method: values.method,
           description: values.description,
           groupId: values.groupId || null,
@@ -383,13 +430,13 @@ export default function PaymentsContent() {
   }
 
   const handlePayDebt = (debtor: Debtor) => {
+    setPaidMonths([])
     form.setFieldsValue({
       studentId: debtor.student.id,
       amount: debtor.debtAmount,
       paymentType: 'TUITION',
       method: 'CASH',
       groupId: debtor.group.id,
-      forMonth: CURRENT_MONTH,
       forYear: CURRENT_YEAR,
     })
     setSelectedStudent({
@@ -408,6 +455,8 @@ export default function PaymentsContent() {
     })
     setPaymentSuccess(false)
     setModalVisible(true)
+    // To'langan oylarni yuklash (forMonth avtomatik tanlanadi fetchPaidMonths ichida)
+    fetchPaidMonths(debtor.student.id, debtor.group.id, CURRENT_YEAR)
   }
 
   const closeModal = () => {
@@ -415,6 +464,7 @@ export default function PaymentsContent() {
     setPaymentSuccess(false)
     form.resetFields()
     setSelectedStudent(null)
+    setPaidMonths([])
   }
 
   // Stats cards
@@ -820,7 +870,12 @@ export default function PaymentsContent() {
                 label="Guruh"
                 rules={[{ required: true, message: 'Guruhni tanlang' }]}
               >
-                <Select size="large" style={{ height: 48 }} placeholder="Guruhni tanlang">
+                <Select
+                  size="large"
+                  style={{ height: 48 }}
+                  placeholder="Guruhni tanlang"
+                  onChange={handleGroupChange}
+                >
                   {selectedStudent.groupStudents.map((gs) => (
                     <Select.Option key={gs.group.id} value={gs.group.id}>
                       {gs.group.name} — {gs.group.course.name}
@@ -838,10 +893,22 @@ export default function PaymentsContent() {
                 rules={[{ required: true, message: 'Oyni tanlang' }]}
                 initialValue={CURRENT_MONTH}
               >
-                <Select size="large" style={{ height: 48 }} placeholder="Oy">
-                  {MONTHS.map((m) => (
-                    <Select.Option key={m} value={m}>{m}</Select.Option>
-                  ))}
+                <Select
+                  size="large"
+                  style={{ height: 48 }}
+                  placeholder="Oy"
+                  loading={paidMonthsLoading}
+                >
+                  {MONTHS.map((m) => {
+                    const isPaid = paidMonths
+                      .filter((p) => p.year === (form.getFieldValue('forYear') || CURRENT_YEAR) || p.year === null)
+                      .some((p) => p.month === m)
+                    return (
+                      <Select.Option key={m} value={m} disabled={isPaid}>
+                        {m}{isPaid ? ' ✓' : ''}
+                      </Select.Option>
+                    )
+                  })}
                 </Select>
               </Form.Item>
               <Form.Item
@@ -851,7 +918,12 @@ export default function PaymentsContent() {
                 rules={[{ required: true, message: 'Yilni tanlang' }]}
                 initialValue={CURRENT_YEAR}
               >
-                <Select size="large" style={{ height: 48 }} placeholder="Yil">
+                <Select
+                  size="large"
+                  style={{ height: 48 }}
+                  placeholder="Yil"
+                  onChange={handleYearChange}
+                >
                   {YEARS.map((y) => (
                     <Select.Option key={y} value={y}>{y}</Select.Option>
                   ))}
@@ -878,18 +950,7 @@ export default function PaymentsContent() {
               />
             </Form.Item>
 
-            <Form.Item
-              name="paymentType"
-              label="To'lov turi"
-              rules={[{ required: true, message: "Turini tanlang" }]}
-              initialValue="TUITION"
-            >
-              <Select size="large" style={{ height: 48 }}>
-                {paymentTypes.map((t) => (
-                  <Select.Option key={t.value} value={t.value}>{t.label}</Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
+
 
             <Form.Item
               name="method"

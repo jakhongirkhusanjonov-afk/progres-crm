@@ -132,12 +132,13 @@ export const POST = withAuth(async (request: NextRequest) => {
     }
 
     const body = await request.json();
-    const { studentId, amount, paymentType, method, description, groupId, forMonth, forYear } = body;
+    const { studentId, amount, method, description, groupId, forMonth, forYear } = body;
+    const paymentType = body.paymentType || 'TUITION';
 
     // Validatsiya
-    if (!studentId || !amount || !paymentType || !method) {
+    if (!studentId || !amount || !method) {
       return NextResponse.json(
-        { error: "Talaba, summa, to'lov turi va usuli majburiy" },
+        { error: "Talaba, summa va to'lov usuli majburiy" },
         { status: 400 }
       );
     }
