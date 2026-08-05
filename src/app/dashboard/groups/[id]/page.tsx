@@ -45,6 +45,7 @@ import {
   TrophyOutlined,
   FrownOutlined,
   CrownOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { ColumnsType } from "antd/es/table";
@@ -219,6 +220,9 @@ export default function GroupProfilePage({
   const [paymentChecklist, setPaymentChecklist] =
     useState<PaymentChecklist | null>(null);
   const [loadingChecklist, setLoadingChecklist] = useState(false);
+  const [isUpdatePriceModalOpen, setIsUpdatePriceModalOpen] = useState(false);
+  const [updatingPrice, setUpdatingPrice] = useState(false);
+  const [priceForm] = Form.useForm();
 
   // Guruh ma'lumotlarini yuklash
   const fetchGroup = async () => {
@@ -434,6 +438,43 @@ export default function GroupProfilePage({
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  // Narxni yangilash
+  const handleUpdatePrice = async (values: any) => {
+    setUpdatingPrice(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/groups/${id}/update-price`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          newPrice: values.newPrice,
+          effectiveMonth: values.effectiveMonth,
+          effectiveYear: values.effectiveYear,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        message.error(data.error || "Xatolik yuz berdi");
+        return;
+      }
+
+      message.success(data.message || "Narx muvaffaqiyatli yangilandi");
+      setIsUpdatePriceModalOpen(false);
+      priceForm.resetFields();
+      fetchGroup();
+    } catch (error) {
+      message.error("Narxni yangilashda xatolik");
+      console.error("Error updating price:", error);
+    } finally {
+      setUpdatingPrice(false);
+    }
   };
 
   // Dars kunlarini formatlash
@@ -664,18 +705,36 @@ export default function GroupProfilePage({
               </p>
             </div>
             {group.status === "ACTIVE" && (
-              <Button
-                type="primary"
-                icon={<UserAddOutlined />}
-                size="large"
-                onClick={() => {
-                  form.resetFields();
-                  form.setFieldsValue({ price: Number(groupPrice) });
-                  setIsAddStudentModalOpen(true);
-                }}
-              >
-                Talaba qo'shish
-              </Button>
+              <Space>
+                <Button
+                  icon={<EditOutlined />}
+                  size="large"
+                  onClick={() => {
+                    const now = new Date();
+                    priceForm.resetFields();
+                    priceForm.setFieldsValue({
+                      newPrice: Number(groupPrice),
+                      effectiveMonth: now.getMonth() + 1,
+                      effectiveYear: now.getFullYear(),
+                    });
+                    setIsUpdatePriceModalOpen(true);
+                  }}
+                >
+                  Narxni yangilash
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<UserAddOutlined />}
+                  size="large"
+                  onClick={() => {
+                    form.resetFields();
+                    form.setFieldsValue({ price: Number(groupPrice) });
+                    setIsAddStudentModalOpen(true);
+                  }}
+                >
+                  Talaba qo'shish
+                </Button>
+              </Space>
             )}
           </div>
         </div>
@@ -1319,6 +1378,118 @@ export default function GroupProfilePage({
                   setIsAddStudentModalOpen(false);
                   form.resetFields();
                   setStudentSearchText("");
+                }}
+                size="large"
+              >
+                Bekor qilish
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Narxni yangilash modal */}
+      <Modal
+        title={
+          <Space>
+            <EditOutlined />
+            Narxni yangilash
+          </Space>
+        }
+        open={isUpdatePriceModalOpen}
+        onCancel={() => {
+          setIsUpdatePriceModalOpen(false);
+          priceForm.resetFields();
+        }}
+        footer={null}
+        width={500}
+      >
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-700">
+            <strong>Diqqat:</strong> Yangi narx faqat belgilangan oydan boshlab
+            qo'llaniladi. Oldingi oylar uchun eski narx saqlanib qoladi.
+          </p>
+        </div>
+
+        <Form form={priceForm} layout="vertical" onFinish={handleUpdatePrice}>
+          <Form.Item
+            label="Yangi narx (so'm)"
+            name="newPrice"
+            rules={[
+              { required: true, message: "Narxni kiriting" },
+              {
+                type: "number",
+                min: 1000,
+                message: "Narx kamida 1000 so'm bo'lishi kerak",
+              },
+            ]}
+          >
+            <InputNumber
+              style={{ width: "100%" }}
+              min={0}
+              size="large"
+              formatter={(value) =>
+                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+              }
+              parser={(value) => value!.replace(/\s/g, "") as any}
+              placeholder="Masalan: 350000"
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="Qaysi oydan boshlab"
+                name="effectiveMonth"
+                rules={[{ required: true, message: "Oyni tanlang" }]}
+              >
+                <Select size="large" placeholder="Oy tanlang">
+                  <Option value={1}>Yanvar</Option>
+                  <Option value={2}>Fevral</Option>
+                  <Option value={3}>Mart</Option>
+                  <Option value={4}>Aprel</Option>
+                  <Option value={5}>May</Option>
+                  <Option value={6}>Iyun</Option>
+                  <Option value={7}>Iyul</Option>
+                  <Option value={8}>Avgust</Option>
+                  <Option value={9}>Sentabr</Option>
+                  <Option value={10}>Oktabr</Option>
+                  <Option value={11}>Noyabr</Option>
+                  <Option value={12}>Dekabr</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Yil"
+                name="effectiveYear"
+                rules={[{ required: true, message: "Yilni tanlang" }]}
+              >
+                <Select size="large" placeholder="Yil tanlang">
+                  <Option value={2025}>2025</Option>
+                  <Option value={2026}>2026</Option>
+                  <Option value={2027}>2027</Option>
+                  <Option value={2028}>2028</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={updatingPrice}
+                size="large"
+                icon={<EditOutlined />}
+              >
+                Yangilash
+              </Button>
+              <Button
+                onClick={() => {
+                  setIsUpdatePriceModalOpen(false);
+                  priceForm.resetFields();
                 }}
                 size="large"
               >

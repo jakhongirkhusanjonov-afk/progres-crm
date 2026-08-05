@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-middleware";
-
-// Oylar sonini hisoblash yordamchi funksiyasi
-// startDate dan hozirgi oygacha (shu oy ham kiradi)
-function monthsElapsed(startDate: Date, now: Date): number {
-  const startYear = startDate.getFullYear();
-  const startMonth = startDate.getMonth(); // 0-indexed
-  const nowYear = now.getFullYear();
-  const nowMonth = now.getMonth(); // 0-indexed
-  const months = (nowYear - startYear) * 12 + (nowMonth - startMonth) + 1;
-  return Math.max(1, months); // Kamida 1 oy
-}
+import { ensureMonthlyCharges } from "@/lib/monthly-charges";
 
 // GET - Qarzdorlar ro'yxati
-// Formula: Qarzdorlik = (Oylar soni × Guruh narxi) - (Shu guruh uchun to'langan summa)
-// Oylar soni = enrollDate (yoki group.startDate, qaysi kechroq bo'lsa) dan bugungi oygacha
+// Formula: Qarzdorlik = SUM(MonthlyCharge.amount) - (Shu guruh uchun to'langan summa)
 export const GET = withAuth(async (request: NextRequest) => {
   try {
     const now = new Date();
@@ -68,7 +57,6 @@ export const GET = withAuth(async (request: NextRequest) => {
         course: { name: string };
       };
       monthlyFee: number;
-      monthsElapsed: number;
       expectedTotal: number;
       paidAmount: number;
       debtAmount: number;
@@ -79,16 +67,28 @@ export const GET = withAuth(async (request: NextRequest) => {
       const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
       if (monthlyFee === 0) continue;
 
-      // Boshlanish nuqtasi: enrollDate vs group.startDate — qaysi keyinroq bo'lsa
-      const enrollDate = new Date(gs.enrollDate);
-      const groupStartDate = new Date(gs.group.startDate);
-      const startPoint = enrollDate > groupStartDate ? enrollDate : groupStartDate;
+      // MonthlyCharge yozuvlari mavjudligini ta'minlash
+      await ensureMonthlyCharges(
+        gs.groupId,
+        gs.studentId,
+        new Date(gs.enrollDate),
+        new Date(gs.group.startDate),
+        monthlyFee,
+      );
 
-      // Oylar soni (shu oy ham kiradi)
-      const months = monthsElapsed(startPoint, now);
+      // MonthlyCharge dan kutilayotgan jami summani hisoblash
+      const charges = await prisma.monthlyCharge.findMany({
+        where: {
+          groupId: gs.groupId,
+          studentId: gs.studentId,
+        },
+        select: { amount: true },
+      });
 
-      // Kutilayotgan jami summa
-      const expectedTotal = months * monthlyFee;
+      const expectedTotal = charges.reduce(
+        (sum, c) => sum + Number(c.amount),
+        0
+      );
 
       // Faqat shu guruhga va shu talabaga tegishli to'lovlar
       const groupPaymentsForStudent = gs.group.payments.filter(
@@ -126,7 +126,6 @@ export const GET = withAuth(async (request: NextRequest) => {
             course: { name: gs.group.course.name },
           },
           monthlyFee,
-          monthsElapsed: months,
           expectedTotal,
           paidAmount,
           debtAmount,

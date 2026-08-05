@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth, getUser } from '@/lib/api-middleware'
+import { ensureMonthlyCharges } from '@/lib/monthly-charges'
 
 // Guruhga talaba qo'shish
 export const POST = withAuth(async (
@@ -111,6 +112,18 @@ export const POST = withAuth(async (
         },
       },
     })
+
+    // MonthlyCharge yozuvlarini yaratish (enrollDate dan hozirgi oygacha)
+    const chargePrice = parsedPrice || Number(group.price) || Number(group.course.price) || 0
+    if (chargePrice > 0) {
+      await ensureMonthlyCharges(
+        groupId,
+        studentId,
+        groupStudent.enrollDate,
+        group.startDate,
+        chargePrice,
+      )
+    }
 
     return NextResponse.json({
       success: true,

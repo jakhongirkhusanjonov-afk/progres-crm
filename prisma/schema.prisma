@@ -66,6 +66,7 @@ model Student {
   attendances     Attendance[]
   payments        Payment[]
   testResults     TestResult[]
+  monthlyCharges  MonthlyCharge[]
 }
 
 enum Gender {
@@ -179,11 +180,12 @@ model Group {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  groupStudents GroupStudent[]
-  schedules     Schedule[]
-  attendances   Attendance[]
-  testResults   TestResult[]
-  payments      Payment[]
+  groupStudents  GroupStudent[]
+  schedules      Schedule[]
+  attendances    Attendance[]
+  testResults    TestResult[]
+  payments       Payment[]
+  monthlyCharges MonthlyCharge[]
 }
 
 enum GroupStatus {
@@ -355,4 +357,21 @@ model Expense {
   method      PaymentMethod
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+}
+
+// Oylik to'lov yozuvi - har bir talaba uchun har oy uchun qat'iy narx
+// Narx o'zgarganda eski oylar o'zgarmaydi, faqat yangi oylardan boshlab yangi narx qo'llaniladi
+model MonthlyCharge {
+  id          String   @id @default(cuid())
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  month       Int      // 1-12
+  year        Int      // 2025, 2026, ...
+  amount      Decimal  // Shu oy uchun belgilangan narx
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([groupId, studentId, month, year])
 }

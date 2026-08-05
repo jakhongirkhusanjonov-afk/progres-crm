@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth, getUser } from '@/lib/api-middleware'
+import { ensureMonthlyCharges } from '@/lib/monthly-charges'
 import dayjs from 'dayjs'
 
-// Oylar sonini hisoblash: startDate dan now gacha (shu oy ham kiradi)
-function monthsElapsed(startDate: Date, now: Date): number {
-  const months =
-    (now.getFullYear() - startDate.getFullYear()) * 12 +
-    (now.getMonth() - startDate.getMonth()) +
-    1
-  return Math.max(1, months)
-}
+
 
 // Dashboard statistikalarini olish
 export const GET = withAuth(async (request: NextRequest) => {
@@ -239,18 +233,32 @@ export const GET = withAuth(async (request: NextRequest) => {
       }
     }
 
-    // Qarzdorlik hisoblash: oyma-oy yig'ilib boruvchi formula
-    // Qarz = (Oylar soni × Guruh narxi) - (Shu guruh uchun to'langan summa)
+    // Qarzdorlik hisoblash: MonthlyCharge asosida
+    // Qarz = SUM(MonthlyCharge.amount) - (Shu guruh uchun to'langan summa)
     let totalDebt = 0
-    const nowDate = now.toDate()
     for (const gs of allActiveGroupStudents) {
       const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0)
       if (monthlyFee === 0) continue
-      const enrollDate = new Date(gs.enrollDate)
-      const groupStartDate = new Date(gs.group.startDate)
-      const startPoint = enrollDate > groupStartDate ? enrollDate : groupStartDate
-      const months = monthsElapsed(startPoint, nowDate)
-      const expectedTotal = months * monthlyFee
+
+      // MonthlyCharge yozuvlari mavjudligini ta'minlash
+      await ensureMonthlyCharges(
+        gs.groupId,
+        gs.studentId,
+        new Date(gs.enrollDate),
+        new Date(gs.group.startDate),
+        monthlyFee,
+      )
+
+      // MonthlyCharge dan kutilayotgan jami summani hisoblash
+      const chargesResult = await prisma.monthlyCharge.aggregate({
+        where: {
+          groupId: gs.groupId,
+          studentId: gs.studentId,
+        },
+        _sum: { amount: true },
+      })
+
+      const expectedTotal = Number(chargesResult._sum.amount || 0)
       const paidForThisGroup = gs.group.payments
         .filter((p) => p.studentId === gs.studentId)
         .reduce((sum, p) => sum + Number(p.amount), 0)

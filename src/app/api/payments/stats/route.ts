@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-middleware";
-
-// Oylar sonini hisoblash
-function monthsElapsed(startDate: Date, now: Date): number {
-  const startYear = startDate.getFullYear();
-  const startMonth = startDate.getMonth();
-  const nowYear = now.getFullYear();
-  const nowMonth = now.getMonth();
-  const months = (nowYear - startYear) * 12 + (nowMonth - startMonth) + 1;
-  return Math.max(1, months);
-}
+import { ensureMonthlyCharges } from "@/lib/monthly-charges";
 
 // GET - To'lovlar statistikasi
 export const GET = withAuth(async (request: NextRequest) => {
@@ -60,7 +51,7 @@ export const GET = withAuth(async (request: NextRequest) => {
       }),
     ]);
 
-    // Har bir (guruh, talaba) jufti uchun oyma-oy yig'ilib boruvchi qarz
+    // Har bir (guruh, talaba) jufti uchun MonthlyCharge asosida qarz hisoblash
     let totalDebt = 0;
     const debtorSet = new Set<string>(); // unique qarzdorlar
 
@@ -68,12 +59,25 @@ export const GET = withAuth(async (request: NextRequest) => {
       const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
       if (monthlyFee === 0) continue;
 
-      const enrollDate = new Date(gs.enrollDate);
-      const groupStartDate = new Date(gs.group.startDate);
-      const startPoint = enrollDate > groupStartDate ? enrollDate : groupStartDate;
+      // MonthlyCharge yozuvlari mavjudligini ta'minlash
+      await ensureMonthlyCharges(
+        gs.groupId,
+        gs.studentId,
+        new Date(gs.enrollDate),
+        new Date(gs.group.startDate),
+        monthlyFee,
+      );
 
-      const months = monthsElapsed(startPoint, now);
-      const expectedTotal = months * monthlyFee;
+      // MonthlyCharge dan kutilayotgan jami summani hisoblash
+      const chargesResult = await prisma.monthlyCharge.aggregate({
+        where: {
+          groupId: gs.groupId,
+          studentId: gs.studentId,
+        },
+        _sum: { amount: true },
+      });
+
+      const expectedTotal = Number(chargesResult._sum.amount || 0);
 
       const paidAmount = gs.group.payments
         .filter((p) => p.studentId === gs.studentId)
