@@ -207,6 +207,8 @@ model GroupStudent {
   discountReason  String?  // Chegirma sababi
 
   @@unique([groupId, studentId])
+  @@index([studentId])
+  @@index([status])
 }
 
 enum GroupStudentStatus {
@@ -244,6 +246,9 @@ model Attendance {
   updatedAt DateTime         @updatedAt
 
   @@unique([groupId, studentId, date])
+  @@index([studentId])
+  @@index([groupId])
+  @@index([date])
 }
 
 enum AttendanceStatus {
@@ -271,6 +276,11 @@ model Payment {
   createdBy   User          @relation("CreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([studentId])
+  @@index([groupId])
+  @@index([paymentDate])
+  @@index([studentId, groupId])
 }
 
 enum PaymentType {
@@ -374,4 +384,6 @@ model MonthlyCharge {
   updatedAt   DateTime @updatedAt
 
   @@unique([groupId, studentId, month, year])
+  @@index([studentId])
+  @@index([groupId, studentId])
 }

@@ -1,48 +1,106 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-middleware";
-import { ensureMonthlyCharges } from "@/lib/monthly-charges";
 
 // GET - Qarzdorlar ro'yxati
-// Formula: Qarzdorlik = SUM(MonthlyCharge.amount) - (Shu guruh uchun to'langan summa)
+// Formula: Qarzdorlik = SUM(MonthlyCharge.amount) - SUM(Payment TUITION for same group)
+// OPTIMIZED: Batch groupBy queries instead of per-student N+1 loops
 export const GET = withAuth(async (request: NextRequest) => {
   try {
-    const now = new Date();
-
-    // Aktiv guruh-talaba juftlarini olamiz
-    const activeGroupStudents = await prisma.groupStudent.findMany({
-      where: {
-        status: "ACTIVE",
-        student: { status: "ACTIVE" },
-        group: { status: "ACTIVE" },
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-          },
+    // Parallel: aktiv guruh-talaba juftlari + batch aggregations
+    const [
+      activeGroupStudents,
+      chargesGrouped,
+      paymentsGrouped,
+    ] = await Promise.all([
+      // 1. Aktiv guruh-talaba juftlari (faqat display uchun kerakli ma'lumotlar)
+      prisma.groupStudent.findMany({
+        where: {
+          status: "ACTIVE",
+          student: { status: "ACTIVE" },
+          group: { status: "ACTIVE" },
         },
-        group: {
-          include: {
-            course: true,
-            // Faqat shu guruhga tegishli TUITION to'lovlar
-            payments: {
-              where: { paymentType: "TUITION" },
-              select: {
-                id: true,
-                studentId: true,
-                amount: true,
-                paymentDate: true,
-              },
+        select: {
+          id: true,
+          groupId: true,
+          studentId: true,
+          price: true,
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
+          },
+          group: {
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              course: { select: { name: true, price: true } },
             },
           },
         },
-      },
-    });
+      }),
 
+      // 2. MonthlyCharge totals grouped by (groupId, studentId) — single query
+      prisma.monthlyCharge.groupBy({
+        by: ["groupId", "studentId"],
+        _sum: { amount: true },
+        where: {
+          group: { status: "ACTIVE" },
+          student: { status: "ACTIVE" },
+        },
+      }),
+
+      // 3. Payment totals grouped by (groupId, studentId) — single query
+      // Faqat TUITION va groupId bor to'lovlar (guruhsiz to'lovlar hisobga kirmaydi)
+      prisma.payment.groupBy({
+        by: ["groupId", "studentId"],
+        _sum: { amount: true },
+        where: {
+          paymentType: "TUITION",
+          groupId: { not: null },
+          student: { status: "ACTIVE" },
+        },
+      }),
+    ]);
+
+    // Oxirgi to'lov sanasini olish uchun alohida query (faqat qarzdorlar uchun)
+    // Bu ham batch — hammasi bir vaqtda
+    const lastPayments = await prisma.$queryRawUnsafe<
+      Array<{ studentId: string; groupId: string; lastDate: Date }>
+    >(
+      `SELECT "studentId", "groupId", MAX("paymentDate") as "lastDate"
+       FROM "Payment"
+       WHERE "paymentType" = 'TUITION' AND "groupId" IS NOT NULL
+       GROUP BY "studentId", "groupId"`
+    );
+
+    // Lookup maps
+    const chargesMap = new Map<string, number>();
+    for (const row of chargesGrouped) {
+      chargesMap.set(`${row.groupId}_${row.studentId}`, Number(row._sum.amount || 0));
+    }
+
+    const paymentsMap = new Map<string, number>();
+    for (const row of paymentsGrouped) {
+      if (!row.groupId) continue;
+      paymentsMap.set(`${row.groupId}_${row.studentId}`, Number(row._sum.amount || 0));
+    }
+
+    const lastPaymentMap = new Map<string, string>();
+    for (const row of lastPayments) {
+      if (row.groupId) {
+        lastPaymentMap.set(
+          `${row.groupId}_${row.studentId}`,
+          new Date(row.lastDate).toISOString()
+        );
+      }
+    }
+
+    // Qarzdorlar ro'yxatini hisoblash
     const debtors: {
       id: string;
       student: {
@@ -64,54 +122,13 @@ export const GET = withAuth(async (request: NextRequest) => {
     }[] = [];
 
     for (const gs of activeGroupStudents) {
-      const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
-      if (monthlyFee === 0) continue;
-
-      // MonthlyCharge yozuvlari mavjudligini ta'minlash
-      await ensureMonthlyCharges(
-        gs.groupId,
-        gs.studentId,
-        new Date(gs.enrollDate),
-        new Date(gs.group.startDate),
-        monthlyFee,
-      );
-
-      // MonthlyCharge dan kutilayotgan jami summani hisoblash
-      const charges = await prisma.monthlyCharge.findMany({
-        where: {
-          groupId: gs.groupId,
-          studentId: gs.studentId,
-        },
-        select: { amount: true },
-      });
-
-      const expectedTotal = charges.reduce(
-        (sum, c) => sum + Number(c.amount),
-        0
-      );
-
-      // Faqat shu guruhga va shu talabaga tegishli to'lovlar
-      const groupPaymentsForStudent = gs.group.payments.filter(
-        (p) => p.studentId === gs.studentId
-      );
-
-      const paidAmount = groupPaymentsForStudent.reduce(
-        (sum, p) => sum + Number(p.amount),
-        0
-      );
-
+      const key = `${gs.groupId}_${gs.studentId}`;
+      const expectedTotal = chargesMap.get(key) || 0;
+      const paidAmount = paymentsMap.get(key) || 0;
       const debtAmount = expectedTotal - paidAmount;
 
       if (debtAmount > 0) {
-        // Oxirgi to'lov sanasini topish (shu guruh uchun)
-        const sortedPayments = groupPaymentsForStudent
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(b.paymentDate).getTime() -
-              new Date(a.paymentDate).getTime()
-          );
-
+        const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
         debtors.push({
           id: gs.id,
           student: {
@@ -129,8 +146,7 @@ export const GET = withAuth(async (request: NextRequest) => {
           expectedTotal,
           paidAmount,
           debtAmount,
-          lastPaymentDate:
-            sortedPayments[0]?.paymentDate.toISOString() || null,
+          lastPaymentDate: lastPaymentMap.get(key) || null,
         });
       }
     }

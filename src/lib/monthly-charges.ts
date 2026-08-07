@@ -197,3 +197,84 @@ export async function updateGroupPrice(
     return { updatedStudents }
   })
 }
+
+/**
+ * Batch: Barcha faol (GroupStudent, Group) juftlari uchun MonthlyCharge yozuvlarini
+ * hozirgi oygacha yaratadi. Dashboard o'rniga admin endpoint yoki cron job orqali chaqiriladi.
+ * 
+ * Bu funksiya skipDuplicates ishlatadi, shuning uchun mavjud yozuvlar o'zgarmaydi.
+ */
+export async function ensureMonthlyChargesForAll(): Promise<{ processedCount: number }> {
+  const db = defaultPrisma
+
+  // Barcha faol guruh-talaba juftlarini olish
+  const activeGroupStudents = await db.groupStudent.findMany({
+    where: {
+      status: 'ACTIVE',
+      student: { status: 'ACTIVE' },
+      group: { status: 'ACTIVE' },
+    },
+    select: {
+      groupId: true,
+      studentId: true,
+      enrollDate: true,
+      price: true,
+      group: {
+        select: {
+          startDate: true,
+          price: true,
+          course: { select: { price: true } },
+        },
+      },
+    },
+  })
+
+  const now = new Date()
+  const currentMonth = now.getMonth() + 1
+  const currentYear = now.getFullYear()
+
+  // Barcha charges ni bir massivda yig'ib, bitta createMany bilan yaratish
+  const allCharges: Prisma.MonthlyChargeCreateManyInput[] = []
+
+  for (const gs of activeGroupStudents) {
+    const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0)
+    if (monthlyFee === 0) continue
+
+    const startPoint = gs.enrollDate > gs.group.startDate ? gs.enrollDate : gs.group.startDate
+    const { month: startMonth, year: startYear } = getMonthYear(startPoint)
+
+    let m = startMonth
+    let y = startYear
+
+    while (compareMonthYear(m, y, currentMonth, currentYear) <= 0) {
+      allCharges.push({
+        groupId: gs.groupId,
+        studentId: gs.studentId,
+        month: m,
+        year: y,
+        amount: new Prisma.Decimal(monthlyFee.toString()),
+      })
+
+      m++
+      if (m > 12) {
+        m = 1
+        y++
+      }
+    }
+  }
+
+  if (allCharges.length > 0) {
+    // Batch insert with skipDuplicates — faqat yangi yozuvlar yaratiladi
+    // Katta hajmdagi ma'lumotlar uchun 1000 tadan ​bo'lib yuboramiz
+    const BATCH_SIZE = 1000
+    for (let i = 0; i < allCharges.length; i += BATCH_SIZE) {
+      const batch = allCharges.slice(i, i + BATCH_SIZE)
+      await db.monthlyCharge.createMany({
+        data: batch,
+        skipDuplicates: true,
+      })
+    }
+  }
+
+  return { processedCount: activeGroupStudents.length }
+}

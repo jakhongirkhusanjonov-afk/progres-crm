@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-middleware";
-import { ensureMonthlyCharges } from "@/lib/monthly-charges";
 
 // GET - To'lovlar statistikasi
+// OPTIMIZED: Batch aggregation queries instead of per-student N+1 loops
 export const GET = withAuth(async (request: NextRequest) => {
   try {
     const now = new Date();
@@ -14,85 +14,86 @@ export const GET = withAuth(async (request: NextRequest) => {
       todayPayments,
       monthPayments,
       totalPayments,
-      activeGroupStudents,
+      // Batch debt calculation
+      totalCharges,
+      totalTuitionPaid,
+      debtorCount,
     ] = await Promise.all([
+      // 1. Bugungi to'lovlar
       prisma.payment.aggregate({
         where: { paymentDate: { gte: todayStart } },
         _sum: { amount: true },
         _count: true,
       }),
+
+      // 2. Bu oylik to'lovlar
       prisma.payment.aggregate({
         where: { paymentDate: { gte: monthStart } },
         _sum: { amount: true },
         _count: true,
       }),
+
+      // 3. Jami to'lovlar
       prisma.payment.aggregate({
         _sum: { amount: true },
         _count: true,
       }),
-      prisma.groupStudent.findMany({
+
+      // 4. Jami MonthlyCharge SUM (faol talabalar, faol guruhlar)
+      prisma.monthlyCharge.aggregate({
         where: {
-          status: "ACTIVE",
-          student: { status: "ACTIVE" },
           group: { status: "ACTIVE" },
-        },
-        include: {
-          student: { select: { id: true } },
-          group: {
-            include: {
-              course: true,
-              payments: {
-                where: { paymentType: "TUITION" },
-                select: { studentId: true, amount: true },
-              },
-            },
-          },
-        },
-      }),
-    ]);
-
-    // Har bir (guruh, talaba) jufti uchun MonthlyCharge asosida qarz hisoblash
-    let totalDebt = 0;
-    const debtorSet = new Set<string>(); // unique qarzdorlar
-
-    for (const gs of activeGroupStudents) {
-      const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0);
-      if (monthlyFee === 0) continue;
-
-      // MonthlyCharge yozuvlari mavjudligini ta'minlash
-      await ensureMonthlyCharges(
-        gs.groupId,
-        gs.studentId,
-        new Date(gs.enrollDate),
-        new Date(gs.group.startDate),
-        monthlyFee,
-      );
-
-      // MonthlyCharge dan kutilayotgan jami summani hisoblash
-      const chargesResult = await prisma.monthlyCharge.aggregate({
-        where: {
-          groupId: gs.groupId,
-          studentId: gs.studentId,
+          student: { status: "ACTIVE" },
         },
         _sum: { amount: true },
-      });
+      }),
 
-      const expectedTotal = Number(chargesResult._sum.amount || 0);
+      // 5. Jami TUITION to'lovlar SUM (guruhga bog'langan)
+      prisma.payment.aggregate({
+        where: {
+          paymentType: "TUITION",
+          groupId: { not: null },
+          student: { status: "ACTIVE" },
+        },
+        _sum: { amount: true },
+      }),
 
-      const paidAmount = gs.group.payments
-        .filter((p) => p.studentId === gs.studentId)
-        .reduce((sum, p) => sum + Number(p.amount), 0);
+      // 6. Qarzdorlar soni — groupBy orqali debt > 0 bo'lganlarni sanash
+      // Bu yerda raw SQL ishlatamiz chunki Prisma having clause qo'llab-quvvatlamaydi
+      prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+        `SELECT COUNT(DISTINCT sub."studentId")::bigint as count FROM (
+          SELECT mc."studentId", mc."groupId",
+            COALESCE(SUM(mc.amount), 0) - COALESCE(
+              (SELECT SUM(p.amount) FROM "Payment" p
+               WHERE p."studentId" = mc."studentId"
+               AND p."groupId" = mc."groupId"
+               AND p."paymentType" = 'TUITION'),
+              0
+            ) as debt
+          FROM "MonthlyCharge" mc
+          JOIN "GroupStudent" gs ON gs."studentId" = mc."studentId" AND gs."groupId" = mc."groupId" AND gs.status = 'ACTIVE'
+          JOIN "Group" g ON g.id = mc."groupId" AND g.status = 'ACTIVE'
+          JOIN "Student" s ON s.id = mc."studentId" AND s.status = 'ACTIVE'
+          GROUP BY mc."studentId", mc."groupId"
+          HAVING COALESCE(SUM(mc.amount), 0) - COALESCE(
+            (SELECT SUM(p.amount) FROM "Payment" p
+             WHERE p."studentId" = mc."studentId"
+             AND p."groupId" = mc."groupId"
+             AND p."paymentType" = 'TUITION'),
+            0
+          ) > 0
+        ) sub`
+      ),
+    ]);
 
-      const debt = expectedTotal - paidAmount;
-      if (debt > 0) {
-        totalDebt += debt;
-        debtorSet.add(gs.studentId);
-      }
-    }
+    const totalDebt = Math.max(
+      0,
+      Number(totalCharges._sum.amount || 0) - Number(totalTuitionPaid._sum.amount || 0)
+    );
 
-    const debtorCount = debtorSet.size;
+    const debtorCountNum = Number(debtorCount[0]?.count || 0);
 
-    console.log(`GET /api/payments/stats - Qarzdorlar: ${debtorCount}, Jami qarz: ${totalDebt}`);
+    console.log(`GET /api/payments/stats - Qarzdorlar: ${debtorCountNum}, Jami qarz: ${totalDebt}`);
 
     return NextResponse.json({
       today: {
@@ -109,7 +110,7 @@ export const GET = withAuth(async (request: NextRequest) => {
       },
       debt: {
         amount: totalDebt,
-        count: debtorCount,
+        count: debtorCountNum,
       },
     });
   } catch (error) {

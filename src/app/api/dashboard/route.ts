@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth, getUser } from '@/lib/api-middleware'
-import { ensureMonthlyCharges } from '@/lib/monthly-charges'
 import dayjs from 'dayjs'
-
-
 
 // Dashboard statistikalarini olish
 export const GET = withAuth(async (request: NextRequest) => {
@@ -18,7 +15,13 @@ export const GET = withAuth(async (request: NextRequest) => {
     const isTeacher = currentUser?.role === 'TEACHER'
     const teacherId = currentUser?.teacherId
 
-    // Parallel ravishda barcha ma'lumotlarni olish
+    // Guruh filtri (o'qituvchi faqat o'z guruhlarini ko'radi)
+    const groupFilter = isTeacher && teacherId ? { teacherId } : {}
+
+    // ============================================================
+    // PARALLEL: Barcha mustaqil so'rovlarni bir vaqtda bajarish
+    // N+1 querylar o'rniga batch/aggregate ishlatiladi
+    // ============================================================
     const [
       activeStudents,
       activeGroups,
@@ -26,14 +29,19 @@ export const GET = withAuth(async (request: NextRequest) => {
       totalCourses,
       thisMonthPayments,
       thisMonthSalary,
-      last6MonthsPayments,
+      last6MonthsPaymentsRaw,
       groupsWithStudents,
       recentPayments,
       recentStudents,
       todayGroups,
+      // Debt calculation: batch queries
       allActiveGroupStudents,
+      chargesGrouped,
+      paymentsGrouped,
+      // Attendance for consecutive absent check (last 30 days only)
+      recentAttendance,
     ] = await Promise.all([
-      // Faol talabalar
+      // 1. Faol talabalar soni
       isTeacher && teacherId
         ? prisma.student.count({
             where: {
@@ -48,18 +56,16 @@ export const GET = withAuth(async (request: NextRequest) => {
           })
         : prisma.student.count({ where: { status: 'ACTIVE' } }),
 
-      // Faol guruhlar
-      isTeacher && teacherId
-        ? prisma.group.count({ where: { status: 'ACTIVE', teacherId } })
-        : prisma.group.count({ where: { status: 'ACTIVE' } }),
+      // 2. Faol guruhlar soni
+      prisma.group.count({ where: { status: 'ACTIVE', ...groupFilter } }),
 
-      // Jami o'qituvchilar
+      // 3. Jami o'qituvchilar
       prisma.teacher.count({ where: { status: 'ACTIVE' } }),
 
-      // Jami kurslar
+      // 4. Jami kurslar
       prisma.course.count({ where: { isActive: true } }),
 
-      // Bu oylik to'lovlar yig'indisi
+      // 5. Bu oylik to'lovlar yig'indisi
       prisma.payment.aggregate({
         where: {
           paymentDate: { gte: currentMonth.toDate(), lte: currentMonthEnd.toDate() },
@@ -68,26 +74,25 @@ export const GET = withAuth(async (request: NextRequest) => {
         _count: true,
       }),
 
-      // Bu oylik maosh to'lovlari
+      // 6. Bu oylik maosh to'lovlari
       prisma.salaryPayment.aggregate({
         where: { period: now.format('YYYY-MM') },
         _sum: { amount: true },
       }),
 
-      // Oxirgi 6 oy to'lovlar
-      prisma.payment.findMany({
-        where: {
-          paymentDate: { gte: dayjs().subtract(6, 'month').startOf('month').toDate() },
-        },
-        select: { amount: true, paymentDate: true },
-      }),
+      // 7. Oxirgi 6 oy to'lovlar — groupBy bilan aggregate (findMany o'rniga)
+      prisma.$queryRawUnsafe<Array<{ month: string; total: number }>>(
+        `SELECT to_char("paymentDate", 'YYYY-MM') as month, COALESCE(SUM(amount), 0)::float as total
+         FROM "Payment"
+         WHERE "paymentDate" >= $1
+         GROUP BY to_char("paymentDate", 'YYYY-MM')
+         ORDER BY month ASC`,
+        dayjs().subtract(6, 'month').startOf('month').toDate()
+      ),
 
-      // Guruhlar va talabalar soni
+      // 8. Guruhlar va talabalar soni
       prisma.group.findMany({
-        where: {
-          status: 'ACTIVE',
-          ...(isTeacher && teacherId ? { teacherId } : {}),
-        },
+        where: { status: 'ACTIVE', ...groupFilter },
         select: {
           id: true,
           name: true,
@@ -96,14 +101,14 @@ export const GET = withAuth(async (request: NextRequest) => {
         orderBy: { name: 'asc' },
       }),
 
-      // Oxirgi 5 ta to'lov
+      // 9. Oxirgi 5 ta to'lov
       prisma.payment.findMany({
         take: 5,
         orderBy: { paymentDate: 'desc' },
         include: { student: { select: { firstName: true, lastName: true } } },
       }),
 
-      // Oxirgi 5 ta talaba
+      // 10. Oxirgi 5 ta talaba
       prisma.student.findMany({
         take: 5,
         orderBy: { createdAt: 'desc' },
@@ -117,12 +122,9 @@ export const GET = withAuth(async (request: NextRequest) => {
         },
       }),
 
-      // Bugungi darslar
+      // 11. Bugungi darslar uchun guruhlar
       prisma.group.findMany({
-        where: {
-          status: 'ACTIVE',
-          ...(isTeacher && teacherId ? { teacherId } : {}),
-        },
+        where: { status: 'ACTIVE', ...groupFilter },
         select: {
           id: true,
           name: true,
@@ -136,31 +138,63 @@ export const GET = withAuth(async (request: NextRequest) => {
         orderBy: { startTime: 'asc' },
       }),
 
-      // Qarzdorlik uchun - faol guruh talabalari (guruhga tegishli to'lovlar bilan)
+      // 12. Faol group-student pairs (for debt calc — lightweight, no nested includes)
       prisma.groupStudent.findMany({
         where: {
           status: 'ACTIVE',
-          group: {
-            status: 'ACTIVE',
-            ...(isTeacher && teacherId ? { teacherId } : {}),
-          },
+          group: { status: 'ACTIVE', ...groupFilter },
         },
-        include: {
-          group: {
-            include: {
-              course: true,
-              // Faqat shu guruhga tegishli TUITION to'lovlar
-              payments: {
-                where: { paymentType: 'TUITION' },
-                select: { studentId: true, amount: true },
-              },
-            },
-          },
+        select: {
+          groupId: true,
+          studentId: true,
         },
+      }),
+
+      // 13. MonthlyCharge — batch SUM grouped by (groupId, studentId)
+      prisma.monthlyCharge.groupBy({
+        by: ['groupId', 'studentId'],
+        _sum: { amount: true },
+        where: {
+          group: { status: 'ACTIVE', ...groupFilter },
+          student: { status: 'ACTIVE' },
+        },
+      }),
+
+      // 14. Payment — batch SUM grouped by (groupId, studentId) for TUITION only
+      prisma.payment.groupBy({
+        by: ['groupId', 'studentId'],
+        _sum: { amount: true },
+        where: {
+          paymentType: 'TUITION',
+          groupId: { not: null },
+          student: { status: 'ACTIVE' },
+        },
+      }),
+
+      // 15. Attendance — faqat oxirgi 30 kun (barcha vaqt emas!)
+      prisma.attendance.findMany({
+        where: {
+          date: { gte: dayjs().subtract(30, 'day').toDate() },
+          group: { status: 'ACTIVE', ...groupFilter },
+          student: { status: 'ACTIVE' },
+        },
+        select: {
+          studentId: true,
+          groupId: true,
+          date: true,
+          status: true,
+          student: {
+            select: { firstName: true, lastName: true, phone: true, parentPhone: true },
+          },
+          group: { select: { name: true } },
+        },
+        orderBy: { date: 'desc' },
       }),
     ])
 
+    // ============================================================
     // Bugungi darslarni filterlash
+    // ============================================================
     const today = now.day()
     const todayLessons = todayGroups.filter((g) => {
       if (!g.scheduleDays) return false
@@ -168,39 +202,18 @@ export const GET = withAuth(async (request: NextRequest) => {
       return days.includes(today)
     })
 
-    // ====================================================
+    // ============================================================
     // Ketma-ket 2 ta dars qoldirganlarni aniqlash
-    // Barcha faol guruh talabalari uchun barcha davomatlarni olib,
-    // JS da guruhlash va oxirgi 2 ta statusni tekshiramiz.
-    // ====================================================
-    // Build the set of active (studentId, groupId) pairs for filtering
+    // Faqat oxirgi 30 kun davomati bilan (barcha tarix emas!)
+    // ============================================================
     const activeStudentGroupSet = new Set(
       allActiveGroupStudents.map((gs) => `${gs.studentId}_${gs.groupId}`)
     )
 
-    const allAttFull = await prisma.attendance.findMany({
-      where: {
-        group: { status: 'ACTIVE' },
-        student: { status: 'ACTIVE' },
-      },
-      select: {
-        studentId: true,
-        groupId: true,
-        date: true,
-        status: true,
-        student: {
-          select: { firstName: true, lastName: true, phone: true, parentPhone: true },
-        },
-        group: { select: { name: true } },
-      },
-      orderBy: { date: 'desc' },
-    })
-
-    // (studentId, groupId) juftligi bo'yicha guruhlash (faqat faol enrollment lar)
-    const attByPair = new Map<string, typeof allAttFull>()
-    for (const att of allAttFull) {
+    // (studentId, groupId) juftligi bo'yicha guruhlash
+    const attByPair = new Map<string, typeof recentAttendance>()
+    for (const att of recentAttendance) {
       const key = `${att.studentId}_${att.groupId}`
-      // Faqat faol GroupStudent yozuvlari uchun
       if (!activeStudentGroupSet.has(key)) continue
       if (!attByPair.has(key)) attByPair.set(key, [])
       attByPair.get(key)!.push(att)
@@ -213,16 +226,13 @@ export const GET = withAuth(async (request: NextRequest) => {
       phone: string
       groupName: string
     }> = []
-    const seenPairs = new Set<string>()
 
     for (const [key, atts] of attByPair) {
       if (
         atts.length >= 2 &&
         atts[0].status === 'ABSENT' &&
-        atts[1].status === 'ABSENT' &&
-        !seenPairs.has(key)
+        atts[1].status === 'ABSENT'
       ) {
-        seenPairs.add(key)
         const info = atts[0]
         consecutiveAbsentStudents.push({
           studentId: info.studentId,
@@ -233,52 +243,50 @@ export const GET = withAuth(async (request: NextRequest) => {
       }
     }
 
-    // Qarzdorlik hisoblash: MonthlyCharge asosida
-    // Qarz = SUM(MonthlyCharge.amount) - (Shu guruh uchun to'langan summa)
+    // ============================================================
+    // Qarzdorlik hisoblash: BATCH SUM — N+1 query yo'q!
+    // qarz = SUM(MonthlyCharge) - SUM(Payment TUITION for same group)
+    // ============================================================
+    // Build lookup maps
+    const chargesMap = new Map<string, number>()
+    for (const row of chargesGrouped) {
+      const key = `${row.groupId}_${row.studentId}`
+      chargesMap.set(key, Number(row._sum.amount || 0))
+    }
+
+    const paymentsMap = new Map<string, number>()
+    for (const row of paymentsGrouped) {
+      if (!row.groupId) continue
+      const key = `${row.groupId}_${row.studentId}`
+      paymentsMap.set(key, Number(row._sum.amount || 0))
+    }
+
     let totalDebt = 0
     for (const gs of allActiveGroupStudents) {
-      const monthlyFee = Number(gs.price || gs.group.price || gs.group.course.price || 0)
-      if (monthlyFee === 0) continue
-
-      // MonthlyCharge yozuvlari mavjudligini ta'minlash
-      await ensureMonthlyCharges(
-        gs.groupId,
-        gs.studentId,
-        new Date(gs.enrollDate),
-        new Date(gs.group.startDate),
-        monthlyFee,
-      )
-
-      // MonthlyCharge dan kutilayotgan jami summani hisoblash
-      const chargesResult = await prisma.monthlyCharge.aggregate({
-        where: {
-          groupId: gs.groupId,
-          studentId: gs.studentId,
-        },
-        _sum: { amount: true },
-      })
-
-      const expectedTotal = Number(chargesResult._sum.amount || 0)
-      const paidForThisGroup = gs.group.payments
-        .filter((p) => p.studentId === gs.studentId)
-        .reduce((sum, p) => sum + Number(p.amount), 0)
-      const debt = expectedTotal - paidForThisGroup
+      const key = `${gs.groupId}_${gs.studentId}`
+      const expected = chargesMap.get(key) || 0
+      const paid = paymentsMap.get(key) || 0
+      const debt = expected - paid
       if (debt > 0) totalDebt += debt
     }
 
+    // ============================================================
     // Oxirgi 6 oy grafiklarini formatlash
+    // ============================================================
     const months: { month: string; label: string; total: number }[] = []
     for (let i = 5; i >= 0; i--) {
       const monthDate = dayjs().subtract(i, 'month')
       months.push({ month: monthDate.format('YYYY-MM'), label: monthDate.format('MMM'), total: 0 })
     }
-    last6MonthsPayments.forEach((p) => {
-      const paymentMonth = dayjs(p.paymentDate).format('YYYY-MM')
-      const monthIndex = months.findIndex((m) => m.month === paymentMonth)
-      if (monthIndex !== -1) months[monthIndex].total += Number(p.amount) || 0
-    })
+    // Fill from raw query results
+    for (const row of last6MonthsPaymentsRaw) {
+      const monthIndex = months.findIndex((m) => m.month === row.month)
+      if (monthIndex !== -1) months[monthIndex].total = Number(row.total) || 0
+    }
 
+    // ============================================================
     // Guruhlar statistikasini formatlash
+    // ============================================================
     const groupsStats = groupsWithStudents.map((g) => ({
       name: g.name,
       students: g._count.groupStudents,
@@ -290,10 +298,8 @@ export const GET = withAuth(async (request: NextRequest) => {
     const netProfit = thisMonthRevenue - thisMonthExpense
 
     return NextResponse.json({
-      // Ketma-ket dars qoldirganlar (Admin/SuperAdmin uchun)
       consecutiveAbsentStudents,
 
-      // Statistika kartalari
       stats: {
         thisMonthRevenue,
         thisMonthExpense,
@@ -306,13 +312,9 @@ export const GET = withAuth(async (request: NextRequest) => {
         paymentsCount: thisMonthPayments._count,
       },
 
-      // To'lovlar grafigi (oxirgi 6 oy)
       paymentsChart: months,
-
-      // Guruhlar statistikasi
       groupsStats,
 
-      // Oxirgi faoliyat
       recentActivity: {
         payments: recentPayments.map((p) => ({
           id: p.id,
