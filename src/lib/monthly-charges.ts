@@ -102,12 +102,13 @@ export async function updateGroupPrice(
     const group = await tx.group.findUnique({
       where: { id: groupId },
       include: {
+        course: { select: { price: true } },
         groupStudents: {
           where: { status: 'ACTIVE' },
           select: {
             studentId: true,
             enrollDate: true,
-            price: true, // Individual narx
+            price: true, // Individual narx (null = guruh narxidan foydalanadi)
           },
         },
       },
@@ -117,14 +118,21 @@ export async function updateGroupPrice(
       throw new Error('Guruh topilmadi')
     }
 
+    const oldGroupPrice = Number(group.price || group.course.price || 0)
+
     // 2. Group.price ni yangilash
     await tx.group.update({
       where: { id: groupId },
       data: { price: newPrice },
     })
 
-    // 3. Effective oy/yildan boshlab eski MonthlyCharge'larni o'chirish
-    // Faqat shu guruhga tegishli va effective sanadan keyingi yozuvlar
+    // 3. Individual narxi yo'q (yoki eski guruh narxiga teng) talabalarning
+    //    GroupStudent.price ni ham yangilash — bu kelajakdagi consistency uchun
+    //    Individual chegirma/narx o'rnatilgan talabalar o'zgarmaydi
+    // (Bu qadamni skip qilamiz chunki GroupStudent.price = null demak guruh narxini ishlatadi)
+
+    // 4. Effective oy/yildan boshlab BARCHA MonthlyCharge'larni O'CHIRISH
+    //    Bu zaruriy — eski narx bilan yaratilgan yozuvlar to'liq o'chiriladi
     await tx.monthlyCharge.deleteMany({
       where: {
         groupId,
@@ -138,44 +146,44 @@ export async function updateGroupPrice(
       },
     })
 
-    // 4. Har bir faol talaba uchun yangi narx bilan MonthlyCharge yaratish
+    // 5. Har bir faol talaba uchun yangi narx bilan MonthlyCharge QAYTADAN YARATISH
+    //    effectiveMonth dan hozirgi oygacha
     const now = new Date()
     const currentMonth = now.getMonth() + 1
     const currentYear = now.getFullYear()
 
     let updatedStudents = 0
+    const allCharges: Prisma.MonthlyChargeCreateManyInput[] = []
 
     for (const gs of group.groupStudents) {
-      // Individual narxi bor talabalar uchun individual narxni saqlaymiz
-      // Faqat individual narxi yo'q talabalar yangi guruh narxiga o'tadi
-      const studentPrice = gs.price ? Number(gs.price) : newPrice
+      // Individual narxi bor talabalar — ularning narxi O'ZGARMAYDI
+      // Individual narxi yo'q (null) talabalar — yangi guruh narxiga o'tadi
+      // Individual narxi eski guruh narxiga teng bo'lsa — bu "guruh narxini kuzatadi" degan ma'no
+      const hasIndividualPrice = gs.price !== null && Number(gs.price) !== oldGroupPrice
+      const studentPrice = hasIndividualPrice ? Number(gs.price) : newPrice
 
-      const charges: Prisma.MonthlyChargeCreateManyInput[] = []
+      const enrollDate = new Date(gs.enrollDate)
+      const groupStartDate = group.startDate
+      const startPoint = enrollDate > groupStartDate ? enrollDate : groupStartDate
+      const { month: startMonth, year: startYear } = getMonthYear(startPoint)
+
       let m = effectiveMonth
       let y = effectiveYear
 
+      let studentHasCharges = false
+
       // effectiveMonth dan current month gacha
       while (compareMonthYear(m, y, currentMonth, currentYear) <= 0) {
-        // Faqat enrollDate dan keyingi oylar uchun
-        const enrollDate = new Date(gs.enrollDate)
-        const enrollMonth = enrollDate.getMonth() + 1
-        const enrollYear = enrollDate.getFullYear()
-        const groupStartMonth = group.startDate.getMonth() + 1
-        const groupStartYear = group.startDate.getFullYear()
-
-        // Start point = max(enrollDate, groupStartDate)
-        const startMonth = enrollDate > group.startDate ? enrollMonth : groupStartMonth
-        const startYear_val = enrollDate > group.startDate ? enrollYear : groupStartYear
-
-        // Bu oy startPoint dan keyin bo'lishi kerak
-        if (compareMonthYear(m, y, startMonth, startYear_val) >= 0) {
-          charges.push({
+        // Bu oy talabaning startPoint dan keyin bo'lishi kerak
+        if (compareMonthYear(m, y, startMonth, startYear) >= 0) {
+          allCharges.push({
             groupId,
             studentId: gs.studentId,
             month: m,
             year: y,
             amount: new Prisma.Decimal(studentPrice.toString()),
           })
+          studentHasCharges = true
         }
 
         m++
@@ -185,18 +193,21 @@ export async function updateGroupPrice(
         }
       }
 
-      if (charges.length > 0) {
-        await tx.monthlyCharge.createMany({
-          data: charges,
-          skipDuplicates: true,
-        })
-        updatedStudents++
-      }
+      if (studentHasCharges) updatedStudents++
+    }
+
+    // Batch insert — barcha talabalar uchun bir vaqtda
+    if (allCharges.length > 0) {
+      await tx.monthlyCharge.createMany({
+        data: allCharges,
+        skipDuplicates: true, // Xavfsizlik uchun, lekin delete qilingan yozuvlar qaytadan yaratiladi
+      })
     }
 
     return { updatedStudents }
   })
 }
+
 
 /**
  * Batch: Barcha faol (GroupStudent, Group) juftlari uchun MonthlyCharge yozuvlarini
