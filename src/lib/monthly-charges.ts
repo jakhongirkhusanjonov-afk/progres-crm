@@ -126,10 +126,20 @@ export async function updateGroupPrice(
       data: { price: newPrice },
     })
 
-    // 3. Individual narxi yo'q (yoki eski guruh narxiga teng) talabalarning
-    //    GroupStudent.price ni ham yangilash — bu kelajakdagi consistency uchun
-    //    Individual chegirma/narx o'rnatilgan talabalar o'zgarmaydi
-    // (Bu qadamni skip qilamiz chunki GroupStudent.price = null demak guruh narxini ishlatadi)
+    // 3. GroupStudent.price ni yangilash — UI da individual narx ko'rsatiladi
+    //    Individual chegirma/narxi bo'lgan talabalar o'zgarmaydi
+    //    price = null (guruh narxini ishlatadi) YOKI price = eski guruh narxi bo'lganlar yangilanadi
+    await tx.groupStudent.updateMany({
+      where: {
+        groupId,
+        status: 'ACTIVE',
+        OR: [
+          { price: null },
+          { price: oldGroupPrice },
+        ],
+      },
+      data: { price: newPrice },
+    })
 
     // 4. Effective oy/yildan boshlab BARCHA MonthlyCharge'larni O'CHIRISH
     //    Bu zaruriy — eski narx bilan yaratilgan yozuvlar to'liq o'chiriladi
