@@ -40,6 +40,8 @@ export const GET = withAuth(async (request: NextRequest) => {
       paymentsGrouped,
       // Attendance for consecutive absent check (last 30 days only)
       recentAttendance,
+      // Current month expected revenue for debt percentage
+      currentMonthCharges,
     ] = await Promise.all([
       // 1. Faol talabalar soni
       isTeacher && teacherId
@@ -190,6 +192,17 @@ export const GET = withAuth(async (request: NextRequest) => {
         },
         orderBy: { date: 'desc' },
       }),
+
+      // 16. Current month's total expected revenue (MonthlyCharge for this month)
+      prisma.monthlyCharge.aggregate({
+        where: {
+          month: now.month() + 1, // dayjs.month() is 0-indexed, MonthlyCharge.month is 1-12
+          year: now.year(),
+          group: { status: 'ACTIVE', ...groupFilter },
+          student: { status: 'ACTIVE' },
+        },
+        _sum: { amount: true },
+      }),
     ])
 
     // ============================================================
@@ -270,6 +283,12 @@ export const GET = withAuth(async (request: NextRequest) => {
       if (debt > 0) totalDebt += debt
     }
 
+    // Qarzdorlik foizini hisoblash
+    const currentMonthExpectedRevenue = Number(currentMonthCharges._sum.amount) || 0
+    const debtPercentage = currentMonthExpectedRevenue > 0
+      ? Math.round((totalDebt / currentMonthExpectedRevenue) * 100)
+      : 0
+
     // ============================================================
     // Oxirgi 6 oy grafiklarini formatlash
     // ============================================================
@@ -307,6 +326,7 @@ export const GET = withAuth(async (request: NextRequest) => {
         activeStudents,
         activeGroups,
         totalDebt,
+        debtPercentage,
         totalTeachers,
         totalCourses,
         paymentsCount: thisMonthPayments._count,

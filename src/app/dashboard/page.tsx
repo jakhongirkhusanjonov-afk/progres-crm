@@ -43,7 +43,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import { hasPermission, isAdmin } from '@/lib/permissions'
+import { hasPermission, isAdmin, isSuperAdmin } from '@/lib/permissions'
 
 interface DashboardData {
   consecutiveAbsentStudents: Array<{
@@ -59,6 +59,7 @@ interface DashboardData {
     activeStudents: number
     activeGroups: number
     totalDebt: number
+    debtPercentage: number
     totalTeachers: number
     totalCourses: number
     paymentsCount: number
@@ -204,10 +205,12 @@ export default function DashboardPage() {
     },
     {
       title: 'Qarzdorlik',
-      value: data?.stats.totalDebt || 0,
+      value: isSuperAdmin(userRole)
+        ? (data?.stats.totalDebt || 0)
+        : (data?.stats.debtPercentage || 0),
       icon: <WarningOutlined />,
       color: (data?.stats.totalDebt || 0) > 0 ? 'from-amber-500 to-amber-600' : 'from-green-500 to-green-600',
-      format: 'price',
+      format: isSuperAdmin(userRole) ? 'price' : 'percent',
       superAdminOnly: false,
       teacherHidden: true,
       link: '/dashboard/payments?tab=qarzdorlar'
@@ -303,12 +306,19 @@ export default function DashboardPage() {
                   <span>
                     {card.format === 'price'
                       ? formatShortPrice(card.value)
-                      : card.value}
+                      : card.format === 'percent'
+                        ? `${card.value}%`
+                        : card.value}
                   </span>
                 </div>
                 {card.format === 'price' && (
                   <div className="text-white opacity-70 text-[9px] md:text-xs mt-0.5 truncate">
                     {formatPrice(card.value)}
+                  </div>
+                )}
+                {card.format === 'percent' && (
+                  <div className="text-white opacity-70 text-[9px] md:text-xs mt-0.5 truncate">
+                    Umumiy qarzdorlik ulushi
                   </div>
                 )}
               </div>
