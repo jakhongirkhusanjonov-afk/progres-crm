@@ -694,7 +694,7 @@ export default function PaymentsContent() {
                                 {group.debtorsCount} ta
                               </Tag>
                               <span className="font-bold text-red-600 whitespace-nowrap">
-                                {formatPrice(group.totalDebt)}
+                                {isSuperAdmin(userRole) ? formatPrice(group.totalDebt) : `${group.debtorsCount} qarzdor`}
                               </span>
                             </div>
                           </div>
@@ -763,13 +763,15 @@ export default function PaymentsContent() {
                               </div>
                             </div>
                           ))}
-                          {/* Group total */}
+                          {/* Group total - faqat SUPER_ADMIN uchun */}
+                          {isSuperAdmin(userRole) && (
                           <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-200">
                             <span className="text-sm text-gray-600">Guruh bo'yicha jami:</span>
                             <span className="font-bold text-red-600">
                               {formatPrice(group.totalDebt)}
                             </span>
                           </div>
+                          )}
                         </div>
                       </Collapse.Panel>
                     ))}
