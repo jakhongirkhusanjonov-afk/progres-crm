@@ -35,7 +35,7 @@ import {
   CaretRightOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { hasPermission } from '@/lib/permissions'
+import { hasPermission, isSuperAdmin } from '@/lib/permissions'
 
 interface Payment {
   id: string
@@ -500,7 +500,8 @@ export default function PaymentsContent() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - faqat SUPER_ADMIN uchun */}
+      {isSuperAdmin(userRole) && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4">
         {statsCards.map((card, index) => (
           <div
@@ -521,6 +522,7 @@ export default function PaymentsContent() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Tabs */}
       <Card className="shadow-sm" styles={{ body: { padding: '12px' } }}>
@@ -638,7 +640,8 @@ export default function PaymentsContent() {
                 <Empty description="Qarzdorlar yo'q" className="py-8" />
               ) : (
                 <>
-                  {/* Total debt banner */}
+                  {/* Total debt banner - faqat SUPER_ADMIN uchun */}
+                  {isSuperAdmin(userRole) && (
                   <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-100">
                     <div className="flex justify-between items-center">
                       <span className="text-red-700 font-medium text-sm">
@@ -649,6 +652,7 @@ export default function PaymentsContent() {
                       </span>
                     </div>
                   </div>
+                  )}
 
                   {/* Expand/Collapse buttons */}
                   <div className="flex justify-end gap-2 mb-3">
