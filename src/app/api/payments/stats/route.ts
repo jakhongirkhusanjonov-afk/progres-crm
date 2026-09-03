@@ -14,10 +14,7 @@ export const GET = withAuth(async (request: NextRequest) => {
       todayPayments,
       monthPayments,
       totalPayments,
-      // Batch debt calculation
-      totalCharges,
-      totalTuitionPaid,
-      debtorCount,
+      debtorData,
     ] = await Promise.all([
       // 1. Bugungi to'lovlar
       prisma.payment.aggregate({
@@ -39,29 +36,9 @@ export const GET = withAuth(async (request: NextRequest) => {
         _count: true,
       }),
 
-      // 4. Jami MonthlyCharge SUM (faol talabalar, faol guruhlar)
-      prisma.monthlyCharge.aggregate({
-        where: {
-          group: { status: "ACTIVE" },
-          student: { status: "ACTIVE" },
-        },
-        _sum: { amount: true },
-      }),
-
-      // 5. Jami TUITION to'lovlar SUM (guruhga bog'langan)
-      prisma.payment.aggregate({
-        where: {
-          paymentType: "TUITION",
-          groupId: { not: null },
-          student: { status: "ACTIVE" },
-        },
-        _sum: { amount: true },
-      }),
-
-      // 6. Qarzdorlar soni — groupBy orqali debt > 0 bo'lganlarni sanash
-      // Bu yerda raw SQL ishlatamiz chunki Prisma having clause qo'llab-quvvatlamaydi
-      prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
-        `SELECT COUNT(DISTINCT sub."studentId")::bigint as count FROM (
+      // 4. Qarzdorlar soni va Jami qarz summasi
+      prisma.$queryRawUnsafe<Array<{ count: bigint, totalDebt: bigint }>>(
+        `SELECT COUNT(DISTINCT sub."studentId")::bigint as count, SUM(sub.debt)::bigint as "totalDebt" FROM (
           SELECT mc."studentId", mc."groupId",
             COALESCE(SUM(mc.amount), 0) - COALESCE(
               (SELECT SUM(p.amount) FROM "Payment" p
@@ -86,12 +63,8 @@ export const GET = withAuth(async (request: NextRequest) => {
       ),
     ]);
 
-    const totalDebt = Math.max(
-      0,
-      Number(totalCharges._sum.amount || 0) - Number(totalTuitionPaid._sum.amount || 0)
-    );
-
-    const debtorCountNum = Number(debtorCount[0]?.count || 0);
+    const totalDebt = Number(debtorData[0]?.totalDebt || 0);
+    const debtorCountNum = Number(debtorData[0]?.count || 0);
 
     console.log(`GET /api/payments/stats - Qarzdorlar: ${debtorCountNum}, Jami qarz: ${totalDebt}`);
 

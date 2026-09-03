@@ -120,6 +120,14 @@ export default function DashboardPage() {
       if (userData) {
         const user = JSON.parse(userData)
         setUserRole(user.role || '')
+
+        // Auto-generate charges for admins silently in background
+        if (['SUPER_ADMIN', 'ADMIN'].includes(user.role)) {
+          fetch('/api/payments/generate-charges', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(e => console.error('Background charge generation failed:', e))
+        }
       }
 
       const response = await fetch('/api/dashboard', {
